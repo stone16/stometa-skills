@@ -1,0 +1,5 @@
+schema_version: 1
+
+# Stable public skills only. SKILL.md owns the runtime description.
+skills: {}
+

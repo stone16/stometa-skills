@@ -1,0 +1,24 @@
+schema_version: 1
+
+# Collections are many-to-many catalog views. They do not change source paths.
+collections:
+  skill-engineering:
+    title: Skill Engineering
+    description: Build, evaluate, promote, and maintain agent skills.
+    skills: []
+
+  repository-and-harness:
+    title: Repository and Harness Engineering
+    description: Configure repositories, agent instructions, feedback loops, and delivery harnesses.
+    skills: []
+
+  research-and-knowledge:
+    title: Research and Knowledge Work
+    description: Produce evidence-backed research and durable knowledge artifacts.
+    skills: []
+
+  content-and-growth:
+    title: Content and Growth
+    description: Operate measurable content, distribution, and growth workflows.
+    skills: []
+

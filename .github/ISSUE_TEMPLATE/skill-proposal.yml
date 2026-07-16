@@ -1,0 +1,42 @@
+name: Skill proposal
+description: Propose a field-tested skill for promotion review.
+title: "[Skill proposal] "
+labels:
+  - skill-proposal
+body:
+  - type: input
+    id: job
+    attributes:
+      label: Repeated job
+      description: What stable job does the skill handle?
+    validations:
+      required: true
+  - type: textarea
+    id: contexts
+    attributes:
+      label: Real-use contexts
+      description: Describe anonymized repositories or distinct contexts and observed outcomes.
+    validations:
+      required: true
+  - type: textarea
+    id: distinction
+    attributes:
+      label: Existing alternatives
+      description: Why can an existing public skill not absorb this behavior cleanly?
+    validations:
+      required: true
+  - type: textarea
+    id: boundary
+    attributes:
+      label: Public/private boundary
+      description: What remains repository-specific or private?
+    validations:
+      required: true
+  - type: textarea
+    id: provenance
+    attributes:
+      label: Provenance and license
+      description: State original/adapted status, upstream URL, pinned commit, and license.
+    validations:
+      required: true
+

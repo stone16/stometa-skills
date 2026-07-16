@@ -1,0 +1,73 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://github.com/stone16/stometa-skills/schemas/promotion-evidence.schema.json",
+  "title": "Stometa skill promotion evidence",
+  "type": "object",
+  "required": [
+    "schema_version",
+    "skill",
+    "generated_at",
+    "evidence_level",
+    "contexts",
+    "tests",
+    "review",
+    "provenance",
+    "known_limits"
+  ],
+  "properties": {
+    "schema_version": {"const": 1},
+    "skill": {"type": "string", "pattern": "^[a-z0-9]+(?:-[a-z0-9]+)*$"},
+    "generated_at": {"type": "string", "format": "date"},
+    "evidence_level": {
+      "enum": ["structural", "fixture", "local-run", "model-run", "human-reviewed", "production-observed"]
+    },
+    "contexts": {
+      "type": "array",
+      "minItems": 2,
+      "items": {
+        "type": "object",
+        "required": ["id", "kind"],
+        "properties": {
+          "id": {"type": "string"},
+          "kind": {"type": "string"}
+        },
+        "additionalProperties": false
+      }
+    },
+    "tests": {
+      "type": "object",
+      "required": ["trigger", "non_trigger", "installation"],
+      "properties": {
+        "trigger": {"type": "integer", "minimum": 1},
+        "non_trigger": {"type": "integer", "minimum": 1},
+        "installation": {"type": "integer", "minimum": 1}
+      },
+      "additionalProperties": true
+    },
+    "review": {
+      "type": "object",
+      "required": ["reviewer", "reviewed_at", "decision"],
+      "properties": {
+        "reviewer": {"type": "string"},
+        "reviewed_at": {"type": "string", "format": "date"},
+        "decision": {"enum": ["approved", "deferred", "rejected"]}
+      },
+      "additionalProperties": true
+    },
+    "provenance": {
+      "type": "object",
+      "required": ["kind", "license_reviewed"],
+      "properties": {
+        "kind": {"enum": ["original", "adapted"]},
+        "license_reviewed": {"type": "boolean"},
+        "upstream": {"type": ["string", "null"]},
+        "upstream_commit": {"type": ["string", "null"]}
+      },
+      "additionalProperties": true
+    },
+    "known_limits": {"type": "array", "items": {"type": "string"}},
+    "next_review_trigger": {"type": ["string", "null"]}
+  },
+  "additionalProperties": true
+}
+
