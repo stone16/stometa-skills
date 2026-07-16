@@ -2,7 +2,7 @@
 
 # Stometa Skills
 
-两个仓库，三个作用域，一条 ownership 规则。
+多个业务 Repo，三个作用域，一条 ownership 规则。
 
 `stometa-skills` 是经过真实使用、可移植性检查、隐私检查和行为评测后，对外发布 Agent Skills 的公共仓库。第一版 Prompt 留在孵化层；只有完成 Promotion 的 Skill 才进入这里。
 

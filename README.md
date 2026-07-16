@@ -2,7 +2,7 @@
 
 # Stometa Skills
 
-Two repositories, three scopes, one ownership rule.
+Many repositories, three scopes, one ownership rule.
 
 `stometa-skills` is the public home for agent skills that have survived real use, portability review, privacy review, and behavioral evaluation. It is deliberately curated: a skill enters this repository after promotion, not when somebody first writes a useful prompt.
 
