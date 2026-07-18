@@ -86,9 +86,22 @@ Before merge:
 - sanitize the extracted source;
 - add catalog, collection, evidence, evaluation, and notices;
 - validate installation adapters that claim support;
-- replace the previous implementation with a profile/pointer or delete it;
+- replace the previous implementation with a profile/pointer or delete it. When a
+  cross-repository dependency makes public-first merge order unavoidable, the
+  cutover PR must already contain that deletion/pointer, pass review, and be
+  blocked only on public dependency availability. Link it when public; otherwise
+  record an anonymized revision receipt and an access-controlled maintainer
+  attestation without exposing the private repository;
 - record `extracted_from`, prior commit, and migration notes;
 - run an independent review of the public contract.
+
+A paired cutover is not `promoted` when only the public PR merges. The public
+maintainer who merges the Promotion owns the cutover and must merge the
+already-reviewed pointer/deletion PR within 30 minutes. If that second merge
+cannot complete inside the window, that maintainer must revert the exact public
+Promotion merge commit on `main` instead of keeping two editable canonical
+copies. Record both the cutover revision and either the dependent merge or public
+revert revision in the access-controlled review record.
 
 ## Deprecation and private extensions
 
