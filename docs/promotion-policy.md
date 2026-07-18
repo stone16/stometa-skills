@@ -95,10 +95,13 @@ Before merge:
 - record `extracted_from`, prior commit, and migration notes;
 - run an independent review of the public contract.
 
-A paired cutover is not `promoted` when only the public PR merges. Merge the
-already-reviewed pointer/deletion PR immediately afterward. If that second merge
-cannot proceed, revert the public Promotion instead of keeping two editable
-canonical copies.
+A paired cutover is not `promoted` when only the public PR merges. The public
+maintainer who merges the Promotion owns the cutover and must merge the
+already-reviewed pointer/deletion PR within 30 minutes. If that second merge
+cannot complete inside the window, that maintainer must revert the exact public
+Promotion merge commit on `main` instead of keeping two editable canonical
+copies. Record both the cutover revision and either the dependent merge or public
+revert revision in the access-controlled review record.
 
 ## Deprecation and private extensions
 

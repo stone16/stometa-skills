@@ -29,7 +29,12 @@ A promotion PR must include:
 - `evidence/<name>.yaml` conforming to the promotion evidence schema;
 - trigger and non-trigger evaluation cases under `evals/<name>/`;
 - license and attribution material for adapted work;
-- confirmation that the previous source was removed or replaced by an explicit pointer/profile; for a paired cross-repository cutover, link the reviewed dependent PR when it is public, or provide an anonymized revision receipt plus maintainer attestation when a link would disclose a private repository. Do not declare Promotion complete until both sides merge.
+- confirmation that the previous source was removed or replaced by an explicit
+  pointer/profile. For a paired cross-repository cutover, link the reviewed
+  dependent PR when it is public. When that link would disclose a private
+  repository, publish only an anonymized revision receipt; keep the maintainer
+  attestation and all private-repository metadata in the access-controlled review
+  record. Do not declare Promotion complete until both sides merge.
 
 ## Development checks
 
@@ -40,4 +45,3 @@ python3 -m unittest discover -s tests
 ```
 
 Use an English, atomic commit message. Do not add `Co-Authored-By` lines.
-
