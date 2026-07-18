@@ -37,7 +37,7 @@ A promotion PR must include:
 python3 -m pip install -r requirements-dev.txt
 python3 scripts/validate_repo.py
 python3 -m unittest discover -s tests
+python3 -m pytest skills -q
 ```
 
 Use an English, atomic commit message. Do not add `Co-Authored-By` lines.
-

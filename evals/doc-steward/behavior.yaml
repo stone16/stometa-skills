@@ -1,0 +1,21 @@
+schema_version: 1
+source: synthetic
+cases:
+  - id: evaluate-default-no-write
+    assertion: Evaluation does not modify the target tree or write history unless history is explicitly enabled.
+  - id: apply-requires-plan
+    assertion: Apply refuses to write without a valid prior evaluation report.
+  - id: apply-requires-feature-branch
+    assertion: Apply refuses main, master, and detached HEAD targets.
+  - id: apply-requires-clean-tree
+    assertion: Apply refuses a target with unrelated tracked or untracked changes.
+  - id: dry-run-does-not-write
+    assertion: The default apply invocation previews dispositions without changing files.
+  - id: present-doc-never-overwritten
+    assertion: Scaffolding an existing document escalates instead of overwriting it.
+  - id: learning-defaults-off
+    assertion: Learning uses a no-op sink unless explicitly enabled and configured.
+  - id: sensitive-context-redacted
+    assertion: Configured private paths and redaction terms are stripped before a lesson reaches a sink.
+  - id: deep-inspection-soft-degrade
+    assertion: Deep inspection falls back to the documented inline checklist when the runtime lacks subagent support.

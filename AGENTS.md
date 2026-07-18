@@ -21,6 +21,7 @@ This repository is the canonical public source for promoted Stometa agent skills
 python3 -m pip install -r requirements-dev.txt
 python3 scripts/validate_repo.py
 python3 -m unittest discover -s tests
+python3 -m pytest skills -q
 ```
 
 ## Git workflow
@@ -35,4 +36,3 @@ python3 -m unittest discover -s tests
 - State evidence level and known limits explicitly.
 - Do not advertise installation or compatibility before the corresponding smoke test exists.
 - Update English and Chinese entry documentation together when product behavior changes.
-

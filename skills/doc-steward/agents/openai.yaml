@@ -1,0 +1,4 @@
+interface:
+  display_name: "Doc Steward"
+  short_description: "Audit and safely standardize repository agent docs"
+  default_prompt: "Use $doc-steward to audit this repository's agent-facing documentation and recommend the smallest safe fixes."

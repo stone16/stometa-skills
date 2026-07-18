@@ -1,0 +1,98 @@
+schema_version: 1
+skill: doc-steward
+generated_at: "2026-07-18"
+evidence_level: local-run
+
+contexts:
+  - id: repository-context-a
+    kind: agent-skill-repository
+  - id: repository-context-b
+    kind: documentation-heavy-repository
+
+context_results:
+  repository-context-a:
+    tier: Standard
+    target_profile: repository
+    structure_scope: required-document-presence
+    composite: 10.0
+    grade: PASS
+    finding_count: 0
+    skipped_count: 0
+  repository-context-b:
+    tier: Complex
+    target_profile: repository
+    structure_scope: required-document-presence
+    composite: 3.2
+    grade: FAIL
+    finding_count: 57
+    skipped_count: 0
+
+tests:
+  trigger: 4
+  non_trigger: 4
+  installation: 1
+  behavior: 9
+  deterministic_unit: 362
+  repository_pytest: 369
+  promotion_unittest: 7
+  fresh_forward_test: 1
+  all_passed: true
+
+evaluation:
+  source: synthetic
+  review_method: static-contract-and-code-review
+  trigger_cases_reviewed: 4
+  non_trigger_cases_reviewed: 4
+  executable_behavior_cases: 8
+  host_runtime_documented_cases: 1
+  production_cases: 0
+
+installation:
+  adapter: agent-skills-directory
+  state: expected
+  method: clean-copy-package
+  packaged_entrypoints: 1
+  cli_execution_smoke: passed
+  runtime_discovery_smoke: not-run
+
+ownership_transfer:
+  state: prepared-and-validated
+  previous_source: anonymized-private-control-plane
+  cutover_revision: 61f6f8e9008ef67b6d9f489ec3062abfc59dd322
+  retained_surface: profile-pointer-and-private-adapters-only
+  validation: 11-tests-passed
+  governance_gate: https://github.com/stone16/stometa-skills/pull/4
+  merge_gate: governance-first-then-public-and-private-within-30-minutes
+
+review:
+  reviewer: independent-promotion-review-ai-assisted
+  reviewed_at: "2026-07-18"
+  decision: approved
+  conditions:
+    - Governance PR #4 must merge before the Promotion merge.
+
+provenance:
+  kind: original
+  license_reviewed: true
+  upstream: null
+  upstream_commit: null
+
+known_limits:
+  - Deep inspection quality depends on the host runtime and subagent support.
+  - Deterministic structure scoring certifies required-document presence only; semantic Ruler-1 quality remains an unscored deep-inspection judgment.
+  - Apply mode requires Python, Git, a valid prior report, a clean worktree, and a feature branch; an explicit YAML config additionally requires PyYAML.
+  - Multi-file apply is not a filesystem-wide transaction; each path uses atomic replacement, and a later failure triggers tested preimage rollback with an explicit verification receipt.
+  - Multica Workspace import has not been smoke-tested from the released public URL.
+  - Platform-specific permission enforcement varies by runtime.
+
+maintenance:
+  owner: stone16
+  cadence: quarterly
+  next_review_by: "2026-10-18"
+  responsibility: >-
+    Re-run deterministic tests, trigger/non-trigger review, clean-copy packaging,
+    privacy checks, and every compatibility smoke whose state is verified.
+
+next_review_trigger: >-
+  First post-release installation failure, behavioral regression, or completion
+  of the first-promotion baseline review.

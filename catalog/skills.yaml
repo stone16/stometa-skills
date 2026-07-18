@@ -1,5 +1,19 @@
 schema_version: 1
 
 # Stable public skills only. SKILL.md owns the runtime description.
-skills: {}
-
+skills:
+  doc-steward:
+    path: skills/doc-steward
+    version: "1.0.0"
+    lifecycle: stable
+    maintainers:
+      - stone16
+    provenance:
+      kind: original
+    compatibility:
+      agent-skills-directory: expected
+      skills-sh: expected
+      claude-code-plugin: unsupported
+      codex-plugin: unsupported
+      multica-workspace-import: expected
+      multica-repository-scoped: expected

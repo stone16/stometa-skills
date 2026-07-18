@@ -1,0 +1,18 @@
+# Optional doc-steward config. Pass it explicitly with --config.
+# Safe defaults are noop learning, automatic tier/profile detection, and no
+# redaction additions or rule overrides.
+
+sink: noop
+sink_path: null
+learn_enabled: false
+
+# Extra incident-specific strings to remove before learning capture.
+private_paths: []
+redaction_terms: []
+
+# Optional classification overrides.
+tier: null       # Simple | Standard | Complex
+profile: null    # e.g. frontend
+
+# Per-rule toggles, e.g. STRUCT-03: false
+rule_toggles: {}
