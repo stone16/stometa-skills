@@ -10,10 +10,10 @@ Compatibility is evidence, not an aspiration. The catalog uses three states:
 
 | Adapter | State | Notes |
 |---|---|---|
-| Agent Skills directory format | expected | The flat public layout is established; no skill has been released |
-| skills.sh editable install | expected | Enable verification after the first promoted skill exists |
-| Claude Code plugin | unsupported | Manifest is deferred until the first stable skill |
-| Codex plugin | unsupported | Manifest is deferred until the first stable skill |
+| Agent Skills directory format | expected | `doc-steward` passes a clean-copy structure and CLI execution smoke; actual Agent runtime discovery remains unverified |
+| skills.sh editable install | expected | Verify the exact public Git revision after release |
+| Claude Code plugin | unsupported | No native plugin manifest ships in this promotion |
+| Codex plugin | unsupported | No native plugin manifest ships in this promotion |
 | Multica Workspace GitHub import | expected | Import a released skill from its GitHub tree URL, then attach it to an agent |
 | Multica repository-scoped discovery | expected | Repo-specific skills remain in the checkout and depend on the underlying tool's native discovery |
 

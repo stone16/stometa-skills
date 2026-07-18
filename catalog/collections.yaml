@@ -5,12 +5,14 @@ collections:
   skill-engineering:
     title: Skill Engineering
     description: Build, evaluate, promote, and maintain agent skills.
-    skills: []
+    skills:
+      - doc-steward
 
   repository-and-harness:
     title: Repository and Harness Engineering
     description: Configure repositories, agent instructions, feedback loops, and delivery harnesses.
-    skills: []
+    skills:
+      - doc-steward
 
   research-and-knowledge:
     title: Research and Knowledge Work
@@ -21,4 +23,3 @@ collections:
     title: Content and Growth
     description: Operate measurable content, distribution, and growth workflows.
     skills: []
-

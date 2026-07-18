@@ -6,7 +6,7 @@ Many repositories, three scopes, one ownership rule.
 
 `stometa-skills` is the public home for agent skills that have survived real use, portability review, privacy review, and behavioral evaluation. It is deliberately curated: a skill enters this repository after promotion, not when somebody first writes a useful prompt.
 
-> **Status: active incubation baseline v0.** There are `0` promoted skills today. The repository rules are active; the first completed promotion will trigger a policy review before the baseline becomes v1.
+> **Status: active incubation baseline v0.** There is `1` promoted skill. The first completed ownership transfer triggers a policy review before the baseline becomes v1.
 
 ## The model
 
@@ -48,6 +48,12 @@ See [Architecture](docs/architecture.md) and [Promotion policy](docs/promotion-p
 
 The architecture is reusable; the private control plane is an implementation choice. You can adopt the public rules with one repository, several repositories, or a team workspace. See [Operating model](docs/operating-model.md) for the minimum viable setup and copyable review prompts.
 
+## Available skills
+
+| Skill | What it does | Lifecycle | Compatibility |
+|---|---|---|---|
+| [`doc-steward`](skills/doc-steward) | Audits agent-facing repository documentation and applies only explicitly requested, gated low-risk fixes. | stable | Portable source published; runtime adapters remain expected or unsupported as cataloged. |
+
 ## Collections
 
 Collections are catalog views, not directories. A skill may belong to more than one collection without moving or duplicating its source.
@@ -61,11 +67,7 @@ The machine-readable definitions live in [`catalog/collections.yaml`](catalog/co
 
 ## Installation
 
-No install command is advertised before the first skill passes promotion. Planned distribution adapters are tracked in [Compatibility](docs/compatibility.md):
-
-- `skills.sh` for editable copies
-- Claude Code and Codex plugins for managed installs
-- GitHub import and repository-scoped discovery for Multica workflows
+The portable source package lives at [`skills/doc-steward`](skills/doc-steward). A clean-copy structural and CLI smoke test passes, but this is not evidence that a particular Agent runtime discovers the copy. No installation command is advertised as verified until that runtime's exact post-release discovery smoke test passes. Current states are tracked in [Compatibility](docs/compatibility.md).
 
 Multica treats those two paths differently. A repository-scoped skill stays inside the checked-out repository and is discovered by the underlying coding tool. A Workspace Skill is imported, attached to an agent, and synced for new tasks. See [Using the repository with Multica](docs/multica.md).
 

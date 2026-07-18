@@ -1,0 +1,23 @@
+schema_version: 1
+source: synthetic
+cases:
+  - id: prose-copy-edit
+    prompt: Tighten the prose and tone of this product announcement.
+    expected:
+      activates: false
+      reason: prose editing is outside repository documentation governance
+  - id: application-code-review
+    prompt: Review this Python service for concurrency bugs.
+    expected:
+      activates: false
+      reason: application code review is outside scope
+  - id: generic-formatting
+    prompt: Run the Markdown formatter over every note.
+    expected:
+      activates: false
+      reason: generic formatting is outside scope
+  - id: interface-design
+    prompt: Design a polished analytics dashboard for this application.
+    expected:
+      activates: false
+      reason: product interface design is outside scope

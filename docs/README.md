@@ -6,3 +6,4 @@
 - [Skill standard](skill-standard.md) — required files, authoring rules, tests, and safety boundaries.
 - [Multica](multica.md) — repository-scoped, local, and Workspace Skill behavior.
 - [Compatibility](compatibility.md) — distribution adapters and their verification states.
+- [doc-steward ownership transfer](migrations/doc-steward.md) — first-promotion source boundary, cutover, and rollback.

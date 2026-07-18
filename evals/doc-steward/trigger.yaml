@@ -1,0 +1,23 @@
+schema_version: 1
+source: synthetic
+cases:
+  - id: audit-agent-docs
+    prompt: Audit this repository's AGENTS.md and CLAUDE.md structure, drift, and broken routing links.
+    expected:
+      activates: true
+      mode: evaluate
+  - id: grade-doc-health
+    prompt: Grade the health of our agent-facing documentation and cite every finding with file and line evidence.
+    expected:
+      activates: true
+      mode: evaluate
+  - id: review-skill-frontmatter
+    prompt: Check the repository Skills for missing or weak frontmatter and explain the applicable documentation rules.
+    expected:
+      activates: true
+      mode: evaluate
+  - id: scaffold-after-audit
+    prompt: Audit the repository first, then prepare a dry-run plan for missing AGENTS.md documentation.
+    expected:
+      activates: true
+      mode: evaluate-then-enforce-preview

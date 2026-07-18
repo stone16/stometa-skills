@@ -27,3 +27,5 @@ jobs:
         run: python3 scripts/validate_repo.py
       - name: Run tests
         run: python3 -m unittest discover -s tests
+      - name: Run promoted skill tests
+        run: python3 -m pytest skills -q
