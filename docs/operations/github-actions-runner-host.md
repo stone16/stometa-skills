@@ -13,6 +13,11 @@ online. Listener availability and safe job concurrency are separate concerns:
 an idle listener is inexpensive, while four jobs can independently fan out and
 oversubscribe CPU, memory, and disk.
 
+Administrative SSH uses a dedicated non-root account and public-key
+authentication. Root and password login remain disabled. Resolve the address and
+identity from the approved local inventory; never record either in this public
+repository. Escalate with `sudo` only after login.
+
 This maintenance change makes cleanup safe around active jobs. It does not yet
 implement weighted heavy/light admission across organizations.
 
