@@ -21,3 +21,14 @@ cases:
     expected:
       activates: true
       mode: evaluate-then-enforce-preview
+  - id: apply-approved-low-risk-fixes
+    prompt: Use the fresh doc-steward audit to preview the exact low-risk fixes, then apply only the approved write set.
+    expected:
+      activates: true
+      mode: enforce-preview-then-apply
+      repository_actions: separately-authorized
+  - id: capture-documentation-lesson
+    prompt: Capture the broken agent-doc routing finding as one reusable documentation lesson using the safe default sink.
+    expected:
+      activates: true
+      mode: learn

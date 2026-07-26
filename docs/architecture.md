@@ -62,8 +62,8 @@ Adapter availability is documented only after a smoke test. See [Compatibility](
 
 ## Known open loops
 
-- `doc-steward` is the first paired public/private promotion candidate; completing both sides of its ownership transfer triggers the baseline v1 policy review.
-- Native plugin manifests will be added after the first stable skill exists.
+- `doc-steward` is the first stable public package; its paired private cutover is not yet verified by public evidence, and confirming it triggers the baseline v1 policy review.
+- Native plugin manifests remain deferred until their exact runtime installation and discovery paths have smoke tests.
 - Production usage evidence remains private; public evidence files expose counts and methods, not raw task data.
 - The baseline review must test whether the ownership-transfer checklist is strict enough without making small skills prohibitively expensive to maintain.
 

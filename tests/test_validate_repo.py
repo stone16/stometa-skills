@@ -29,6 +29,30 @@ class RepositoryContractTest(unittest.TestCase):
     def test_promotion_evidence_schema_is_valid(self) -> None:
         validate_repo.validate_evidence()
 
+    def test_every_stable_skill_is_collected(self) -> None:
+        skills = validate_repo.load_yaml(ROOT / "catalog" / "skills.yaml")["skills"]
+        collections = validate_repo.load_yaml(
+            ROOT / "catalog" / "collections.yaml"
+        )["collections"]
+        stable = {
+            name for name, entry in skills.items() if entry["lifecycle"] == "stable"
+        }
+        collected = {
+            name for collection in collections.values() for name in collection["skills"]
+        }
+        self.assertLessEqual(stable, collected)
+
+    def test_stable_skills_have_trigger_and_non_trigger_cases(self) -> None:
+        skills = validate_repo.load_yaml(ROOT / "catalog" / "skills.yaml")["skills"]
+        for name, entry in skills.items():
+            if entry["lifecycle"] != "stable":
+                continue
+            for filename in ("trigger.yaml", "non-trigger.yaml"):
+                evaluation = validate_repo.load_yaml(ROOT / "evals" / name / filename)
+                cases = evaluation["cases"]
+                self.assertTrue(cases)
+                self.assertEqual(len(cases), len({case["id"] for case in cases}))
+
 
 if __name__ == "__main__":
     unittest.main()
