@@ -21,3 +21,13 @@ cases:
     expected:
       activates: false
       reason: product interface design is outside scope
+  - id: product-doc-link-check
+    prompt: Check the links in our customer-facing product manual.
+    expected:
+      activates: false
+      reason: generic product-document link checking is outside agent-facing repository documentation governance
+  - id: pull-request-delivery
+    prompt: Commit the current application changes, push the branch, and open a pull request.
+    expected:
+      activates: false
+      reason: generic Git delivery does not invoke documentation stewardship

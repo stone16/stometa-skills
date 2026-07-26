@@ -209,18 +209,3 @@ order; everything else is shelved with a one-line pointer.
 Sizing guidance (house-opinion): a resident charter stays machine-actionable —
 prefer a navigation hub over an essay, and split deep topics into shelved
 `agent_docs/` / `docs/` files reached by the pointer table.
-
----
-
-## 7. Absorbed from the predecessor CLAUDE.md skill
-
-doc-steward supersedes the prior CLAUDE.md-creator skill. The substance of its
-standard is folded in here:
-
-- **Progressive Disclosure** — now the Routing model (§3) and the resident-vs-shelf
-  split (Ruler 1): the resident charter is a navigation hub; deep guides live in
-  shelved files reached by a pointer table.
-- **Required sections + "Do Not"** — now the standard-section table (§6), tiered.
-- **Atomic-commit discipline** — kept as a workflow norm of the write-enabled
-  `scripts/apply/enforce_apply.py` workflow (feature branch + clean worktree),
-  not a resident-doc rule.

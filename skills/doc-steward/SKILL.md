@@ -1,211 +1,142 @@
 ---
 name: doc-steward
 description: >
-  Audits and standardizes agent-facing docs (CLAUDE.md, AGENTS.md, SKILL.md, .claude/rules,
-  docs/decisions, DESIGN.md) against a tiered house standard, then scaffolds gaps and applies
-  low-risk fixes via a feature-branch PR. Use when auditing, grading, or linting docs; checking
-  doc health, drift, or stale docs; reviewing frontmatter or broken doc links; or bootstrapping
-  CLAUDE.md/AGENTS.md. Not for prose copy-editing, application code review, or generic
-  linting/formatting.
+  Steward agent-facing repository documentation against a tiered house standard. Use when
+  auditing or grading AGENTS.md, CLAUDE.md, SKILL.md, .claude/rules, ADRs, or DESIGN.md for
+  structure, drift, frontmatter, or broken routing; explicitly previewing or applying gated
+  low-risk fixes after an audit; or explicitly capturing one documentation lesson. Not for
+  prose copy-editing, application-code review, product-interface design, or generic formatting.
 ---
 
 # doc-steward
 
-An opinionated, business-agnostic **standard** for how a repository organizes its
-**agent-facing documentation** — CLAUDE.md / AGENTS.md / SKILL.md / `.claude/rules` /
-`docs/decisions` / DESIGN.md — plus the machinery to **evaluate** a repo against that
-standard and **apply** fixes toward it. This entrypoint is the **read-only audit
-surface**: it defines the standard and grades a repo, but never edits a doc. Writing
-fixes and capturing learnings use the explicit scripts under `scripts/apply/`
-(see Modes).
+Keep agent-facing repository documentation predictable: put each fact at the
+right residency, altitude, and volatility level; evaluate it deterministically
+where possible; and gate every write.
 
-> **Run scripts from this skill's own directory.** Every path below
-> (`scripts/…`, `references/…`, `agents/…`) is relative to where this `SKILL.md`
-> lives.
+Run commands from this skill directory. Every `scripts/`, `references/`, and
+`agents/` path below is relative to this file.
 
-## The standard in one breath
+## Route the request
 
-A fact belongs in always-resident context (CLAUDE.md/AGENTS.md, loaded every turn,
-before the agent sees the task) only if it passes **all three rulers**:
+Choose exactly one starting mode. Never cross from a read-only mode into a write
+mode without explicit user intent.
 
-1. **Residency / form** — carry guardrails + invariants; shelve procedures + detail.
-   The no-op test: would removing this line cause a mistake on a turn you did not
-   think to look? If not, cut it.
-2. **Altitude / scope** — place each fact at the highest layer where it is
-   universally true, and no higher (global → repo → subtree).
-3. **Volatility / freshness** — only invariants are resident; volatile values
-   (IP, VM, dates, versions) point to a single live source, never get copied.
+| Mode | Trigger | Writes? | Surface |
+|---|---|---:|---|
+| **DEFINE** | The user asks to explain or classify against the standard. | No | This skill + references |
+| **EVALUATE** | Default for audits, grading, drift, frontmatter, or routing checks. | No* | `scripts/checks/doc_lint.py` |
+| **ENFORCE** | The user explicitly asks to preview or apply fixes after an audit. | Yes, only with `--apply` | `scripts/apply/enforce_apply.py` |
+| **LEARN** | The user explicitly asks to retain one documentation lesson. | Sink-dependent | `scripts/apply/learn_capture.py` |
 
-Meta-principle: **make the correct state hold structurally, not by discipline.** The
-standard turns "you must remember" into "it checks for you." Full text:
-`references/standard-core.md`.
+\* EVALUATE changes no audited document. Pass `--history` only when the user
+explicitly wants `.doc-steward/history.jsonl` updated.
 
-## Modes
+## DEFINE
 
-**EVALUATE is the default** and is read-only. DEFINE is an optional, explicitly
-requested preface that may run before EVALUATE. Explicit commands under
-`scripts/apply/` own **ENFORCE + LEARN**; never cross from a read-only mode into
-a write mode silently.
-
-| Mode | Surface | Writes? | What it does |
-|------|---------|---------|--------------|
-| **DEFINE** | this skill (optional preface) | no | Classify tier + profile; present the tiered standard + taxonomy; tag each rule spec-required vs house-opinion. |
-| **EVALUATE** | this skill (default) | no* | Inventory docs → deterministic lint → optional deep inspectors → score + grade → fenced `DOC-STEWARD REPORT`. |
-| **ENFORCE** | `scripts/apply/enforce_apply.py` | yes | Require a fresh versioned EVALUATE bound to the current canonical target → non-default feature branch + clean worktree → apply low-risk fixes and explicitly requested absent-file scaffolds. Any preflight refusal applies zero planned writes. Never blind-delete. |
-| **LEARN** | `scripts/apply/learn_capture.py` | yes | Explicit trigger only: distill one EVALUATE finding and send it to an explicitly configured sink. |
-
-\* EVALUATE does not modify, create, or delete audited docs. History is disabled
-by default; `--history` explicitly opts in to `.doc-steward/history.jsonl`.
-
-Do not silently switch from DEFINE or EVALUATE to a write mode. Require explicit
-write intent, then run the relevant apply script explicitly.
-
-## Workflow
-
-### DEFINE — optionally present the standard first
-
-1. Classify the repo deterministically. The tier (Simple / Standard / Complex) and
-   the frontend profile come from `scripts/checks/tier_assess.py`:
+1. Classify the target:
 
    ```bash
    python3 scripts/checks/tier_assess.py <repo-root> --json
    ```
 
-   Precedence: `--tier` flag > explicit `--config` > auto-detect; when a signal
-   is not inferable offline, auto-detect rounds **down** to the lower tier.
-2. Present the tiered standard + taxonomy from `references/standard-core.md`,
-   tagging each rule **spec-required (S)** vs **house-opinion (H)** using the
-   human mirror `references/rule-catalog.md` (generated from the canonical
-   `scripts/lib/rules.py`; never hand-edit the catalog).
-3. Show the per-tier required-doc checklist and the skeletons in
-   `references/templates.md`. DEFINE proposes nothing and writes nothing. Stop
-   unless the user explicitly requested EVALUATE after DEFINE.
+   Precedence is `--tier` > explicit `--config` > auto-detection. Unknown offline
+   signals round down.
+2. Read `references/standard-core.md` for the three rulers, tier, profile, and
+   taxonomy. Use `references/rule-catalog.md` to distinguish spec-required rules
+   from house opinion.
+3. Open `references/templates.md` only when the user requests required-document
+   checklists or skeletons.
 
-### EVALUATE — grade this repo (default mode, read-only)
+DEFINE is complete when the requested standard, classification, and rule status
+have been presented with no mutation. Stop unless the user also requested an
+audit.
 
-1. **Inventory + deterministic lint.** Run the top-level runner over the repo (or a
-   single `--target` dir). It globs the doc taxonomy, classifies the tier, dispatches
-   the deterministic checkers, and aggregates one scored report:
+## EVALUATE
+
+1. Run the deterministic audit for the exact target:
 
    ```bash
    python3 scripts/checks/doc_lint.py --target <repo-root> --json
    ```
 
-   - The runner preserves
-     `{"passed", "tier", "composite", "grade", "findings", "skipped"}` and
-     also emits `scope: "deterministic"`, `target_profile` (`repository` or
-     `skill-package`), `structure_scope: "required-document-presence"`,
-     per-dimension scores in `dimensions`, and
-     `severity_counts` for P0/P1/P2. Every finding includes catalog-owned
-     `severity`, `confidence: 10`, and a concrete `remedy`.
-   - `--fail-on P0|P1|P2` gates the exit code on severity; otherwise exit is
-     non-zero iff `passed` is false.
-   - `--tier Simple|Standard|Complex` forces the tier; `--history` opts in to a
-     run-log self-write; `--config PATH` loads generic config explicitly.
-   - Deterministic checkers under the hood:
-     `scripts/checks/presence_check.py` (STRUCT-06 — exact-root tier/profile
-     required-document presence),
-     `scripts/checks/frontmatter_check.py` (FRONT-* — name/version format,
-     description quality) and `scripts/checks/link_check.py` (LINK-* — dead
-     pointers/relative Markdown links plus cyclic, over-long, or over-nested
-     routing). Each is wrapped in a failure-mode
-     guard: a checker that is unavailable or raises is recorded in `skipped` and
-     its weight redistributes — the run never crashes mid-way.
+   Use `--tier`, `--config`, `--fail-on`, or `--history` only when the request
+   calls for them. Explicit YAML config needs PyYAML from `requirements.txt`;
+   no-config evaluation remains stdlib-only.
+2. Run deep inspectors only when explicitly requested. Dispatch the applicable
+   read-only checklists in parallel when the harness supports it, otherwise apply
+   the same checklists sequentially:
+   - `agents/inspector-structure.md` — residency, structure, duplication, no-ops.
+   - `agents/inspector-taxonomy.md` — altitude and cross-tool wiring.
+   - `agents/inspector-staleness.md` — volatility and implementation drift.
+   - `agents/inspector-design.md` — DESIGN rules when the frontend profile fires.
+3. Render the deterministic result as a fenced `DOC-STEWARD REPORT`. Follow
+   `references/rubric.md` for verdicts and finding format. Put deep-inspector
+   findings in a separate, unscored judgment appendix; never alter the
+   deterministic composite with them.
 
-   **Optional config dependency:** explicit `--config PATH` parsing uses PyYAML
-   from [requirements.txt](requirements.txt). Without PyYAML, no-config EVALUATE
-   and LEARN still work with safe defaults; an explicit config request fails
-   clearly before evaluation or capture. Install it with
-   `python3 -m pip install -r requirements.txt` when YAML config is needed.
+EVALUATE is complete only when:
 
-2. **Deep inspectors (explicit request only).** When the user explicitly asks for
-   deep inspection, run the read-only inspector checklists as parallel subagents
-   where the harness supports them (soft-degrade to inline sequential execution
-   of the same checklists otherwise). This is an agent/checklist step, not a
-   `doc_lint.py` CLI flag. Each inspector owns one ruler:
-   - `agents/inspector-structure.md` — ruler 1 (residency): procedure-as-fact,
-     force-load, bloat, no-op lines.
-   - `agents/inspector-taxonomy.md` — ruler 2 (altitude) + cross-tool wiring,
-     duplication, ADR coverage.
-   - `agents/inspector-staleness.md` — ruler 3 (volatility): IP/VM/date/version
-     drift, docs-vs-code drift.
-   - `agents/inspector-design.md` — frontend profile: DESIGN.md completeness vs
-     the rubric.
+- the report was freshly generated for the exact canonical target;
+- every unavailable or failed checker appears under `skipped`;
+- every deterministic finding includes its catalog severity and remedy;
+- every judgment finding cites `file:line` and passes the quote-gate;
+- the final output states target, tier/profile, dimensions, grade, findings,
+  skipped checks, and whether history was enabled; and
+- no audited document changed.
 
-   Findings carry a fingerprint for dedupe and are run through the **confidence
-   quote-gate**. They go in a clearly labeled **unscored judgment appendix** and
-   never alter the deterministic composite.
-3. **Score + grade.** The deterministic composite covers **required-document
-   structure + frontmatter + links** and comes from `scripts/lib/score.py` via
-   the runner. A normal repository with no resident root charter floors all
-   three dimensions to 0; an exact-root `SKILL.md` instead selects the portable
-   `skill-package` contract and serves as its resident entrypoint. The
-   deterministic `structure=10` certifies presence only; semantic Ruler-1 quality
-   remains in the explicitly requested, unscored deep-inspector appendix.
-   Dimensions not
-   required at the detected tier drop out and their weight redistributes (a
-   skipped/irrelevant dimension never drags the score down). Verdict: **PASS** (≥8.0) /
-   **PASS_WITH_CONCERNS** (≥5.0) / **FAIL**. Anchors, weights, severity taxonomy,
-   and the Finding format live in `references/rubric.md`.
-4. **Report.** Emit a fenced `DOC-STEWARD REPORT` block from the runner's
-   self-sufficient deterministic output: scope/dimensions, composite, P0/P1/P2
-   counts, verdict, and each finding as `[SEVERITY] (confidence: N/10) <rule-id>
-   file:line — <description> → <remedy>`. If deep inspection was explicitly
-   requested, follow it with the separate unscored judgment appendix.
-5. **History (optional).** Pass `--history` to append a trend row to
-   `.doc-steward/history.jsonl`. The default audit writes nothing.
+## ENFORCE
 
-### ENFORCE / LEARN — hand off to the apply command
+Open `references/apply-workflow.md` and follow it completely. The essential
+sequence is:
 
-These are outside the default read-only audit surface. When EVALUATE finds
-fixable gaps, follow `references/apply-workflow.md` and invoke
-**`scripts/apply/enforce_apply.py`**, which classifies findings
-LOW-RISK-AUTO vs ESCALATE (from each rule's `auto:` field — see
-`references/do-dont-table.md`), applies only low-risk auto fixes on a feature
-branch, scaffolds ABSENT files from `references/templates.md` only when the caller
-explicitly passes `--scaffold` (never inferring or overwriting),
-and prints a disposition table. The script never stages, commits, pushes, or opens
-a PR. LEARN writes one distilled finding to an explicitly selected sink (contract
-in `references/learning-sink.md`). Keep the default `noop` sink unless a reviewed
-adapter is supplied explicitly.
+1. Save a fresh default EVALUATE report outside the target worktree.
+2. Confirm the target is on an existing non-default feature branch with a fully
+   clean worktree. The script does not create or switch branches.
+3. Preview the exact dispositions without `--apply`. Use `--scaffold` and
+   `--link-map` only for exact user-requested paths or mappings.
+4. Show the previewed write set and obtain explicit approval.
+5. Repeat the same command with `--apply`.
+6. Inspect the complete diff and run target validation plus `git diff --check`.
 
-## Read on demand (progressive disclosure)
+The classifier and LOW-RISK-AUTO allowlist live in
+`references/do-dont-table.md`. ENFORCE never blind-deletes or overwrites a
+present scaffold target. The script never stages, commits, pushes, or opens a
+pull request; perform those repository actions only under separate user
+authorization.
 
-Open a reference only when the workflow step above calls for it.
+ENFORCE is complete only when every finding has a disposition, preflight and
+verification succeeded, and the exact changed paths and remaining escalations
+have been reported. If rollback verification fails, stop and report the target
+for manual inspection.
+
+## LEARN
+
+Open `references/learning-sink.md` and capture exactly one selected finding.
+Learning is never implied by EVALUATE or ENFORCE. Keep the `noop` sink unless the
+user explicitly supplies a trusted, reviewed adapter; capturing a lesson never
+changes repository documentation.
+
+LEARN is complete when the sink returns a success or safe rejection receipt and
+no unapproved write-back occurred.
+
+## Read on demand
 
 | Need | Open |
-|------|------|
-| The full tiered standard + document taxonomy (public core) | `references/standard-core.md` |
-| Score anchors (10/7/4/0), weights, severity taxonomy, Finding format | `references/rubric.md` |
-| Human mirror of every rule (S vs H, severity, tier, owner) | `references/rule-catalog.md` |
-| Per-tier AGENTS.md / CLAUDE.md / .claude-rules / MADR / DESIGN.md skeletons | `references/templates.md` |
-| ENFORCE disposition table + the LOW-RISK-AUTO allowlist | `references/do-dont-table.md` |
-| Approval, dry-run, verification, exact staging, and rollback steps | `references/apply-workflow.md` |
-| The LEARN sink contract (safe `noop` default) | `references/learning-sink.md` |
-| Tier + frontend-profile detection | `scripts/checks/tier_assess.py` |
-| The top-level read-only audit runner | `scripts/checks/doc_lint.py` |
-| STRUCT-06 required-document presence checker | `scripts/checks/presence_check.py` |
-| FRONT-* frontmatter checker | `scripts/checks/frontmatter_check.py` |
-| LINK-* reference / routing checker | `scripts/checks/link_check.py` |
-| Run-log + trend-delta helper | `scripts/checks/history.py` |
-| Canonical rule catalog AS DATA (single source of truth) | `scripts/lib/rules.py` |
-| Optional PyYAML dependency for explicit `--config` | `requirements.txt` |
-| Tiered weighted-composite scorer | `scripts/lib/score.py` |
-| Regenerate the human rule-catalog from `scripts/lib/rules.py` (`--check` for drift) | `scripts/gen_rule_catalog.py` |
-| Residency inspector (ruler 1) | `agents/inspector-structure.md` |
-| Altitude + cross-tool inspector (ruler 2) | `agents/inspector-taxonomy.md` |
-| Volatility / staleness inspector (ruler 3) | `agents/inspector-staleness.md` |
-| Frontend DESIGN.md inspector | `agents/inspector-design.md` |
+|---|---|
+| Three rulers, taxonomy, tiers, and profiles | `references/standard-core.md` |
+| Canonical rule ids and ownership | `references/rule-catalog.md` |
+| Score anchors, severity, quote-gate, and finding format | `references/rubric.md` |
+| Required-document skeletons | `references/templates.md` |
+| Preview, approval, apply, verification, and rollback | `references/apply-workflow.md` |
+| ENFORCE dispositions and auto-fix allowlist | `references/do-dont-table.md` |
+| LEARN redaction and sink contract | `references/learning-sink.md` |
 
-## Guardrails
+## Invariants
 
-- **Read-only by default.** Require explicit approval before invoking an apply
-  script. `enforce_apply.py` is dry-run unless `--apply` is passed.
-- **Mode boundary.** EVALUATE is the default; DEFINE may explicitly precede it.
-  Never silently slide from either read-only mode into a write.
-- **Cite evidence.** Every finding quotes `file:line`; un-quotable findings are
-  low-confidence and appendixed (rubric quote-gate).
-- **Dogfood.** This skill is the standard's reference implementation and must pass
-  its own audit (`scripts/checks/test_dogfood.py`): `doc_lint --target` this
-  skill's root is PASS, SKILL.md is ≤500 lines, and every pointer above resolves
-  on disk.
+- Read-only by default; writes require explicit mode and intent.
+- `scripts/lib/rules.py` is the rule catalog's single source of truth; regenerate
+  `references/rule-catalog.md` with `scripts/gen_rule_catalog.py`.
+- Quote every judgment finding at `file:line`; hypotheses are not findings.
+- This package must pass its own deterministic audit, resolve every pointer, and
+  keep this entrypoint within the dogfood line budget.

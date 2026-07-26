@@ -106,8 +106,22 @@ def validate_skill(name: str, path: Path, catalog_entry: dict) -> None:
         raise ValidationError(f"catalog/skills.yaml: {name} has invalid compatibility state")
     if not (ROOT / "evidence" / f"{name}.yaml").is_file():
         raise ValidationError(f"evidence/{name}.yaml: missing promotion evidence")
-    if not (ROOT / "evals" / name).is_dir():
+    eval_dir = ROOT / "evals" / name
+    if not eval_dir.is_dir():
         raise ValidationError(f"evals/{name}: stable public skills require evaluations")
+    for filename in ("trigger.yaml", "non-trigger.yaml"):
+        evaluation_path = eval_dir / filename
+        if not evaluation_path.is_file():
+            raise ValidationError(f"evals/{name}/{filename}: required evaluation is missing")
+        evaluation = load_yaml(evaluation_path)
+        cases = evaluation.get("cases")
+        if not isinstance(cases, list) or not cases:
+            raise ValidationError(f"evals/{name}/{filename}: cases must be a non-empty list")
+        case_ids = [case.get("id") for case in cases if isinstance(case, dict)]
+        if len(case_ids) != len(cases) or any(not case_id for case_id in case_ids):
+            raise ValidationError(f"evals/{name}/{filename}: every case requires an id")
+        if len(case_ids) != len(set(case_ids)):
+            raise ValidationError(f"evals/{name}/{filename}: case ids must be unique")
     if (path / "scripts").is_dir() and not (path / "tests").is_dir():
         raise ValidationError(f"skills/{name}: scripts require a tests directory")
 
@@ -147,6 +161,17 @@ def validate_catalogs() -> None:
             raise ValidationError(
                 f"catalog/collections.yaml: {collection_id} includes deprecated skills {deprecated}"
             )
+    stable = {
+        name for name, entry in catalog_skills.items() if entry.get("lifecycle") == "stable"
+    }
+    collected = {
+        member for collection in collections.values() for member in collection.get("skills", [])
+    }
+    uncollected = sorted(stable - collected)
+    if uncollected:
+        raise ValidationError(
+            f"catalog/collections.yaml: stable skills missing from every collection {uncollected}"
+        )
 
 
 def validate_public_boundary() -> None:

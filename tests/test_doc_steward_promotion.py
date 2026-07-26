@@ -70,6 +70,31 @@ class DocStewardPromotionTest(unittest.TestCase):
                 <= payload.keys()
             )
 
+    def test_runtime_description_matches_apply_authority(self) -> None:
+        body = (SKILL / "SKILL.md").read_text(encoding="utf-8")
+        frontmatter = yaml.safe_load(body.split("---", 2)[1])
+        description = frontmatter["description"]
+        apply_workflow = (SKILL / "references" / "apply-workflow.md").read_text(
+            encoding="utf-8"
+        )
+
+        self.assertIn("Use when", description)
+        self.assertIn("Not for", description)
+        self.assertIn("explicitly previewing or applying", description)
+        self.assertNotIn("PR", description)
+        self.assertNotIn("pull request", description.lower())
+        self.assertIn("never creates a branch", apply_workflow)
+        self.assertIn("stages, commits, pushes, or opens a pull request", apply_workflow)
+
+    def test_entrypoint_routes_each_runtime_mode_to_a_completion_criterion(self) -> None:
+        body = (SKILL / "SKILL.md").read_text(encoding="utf-8")
+
+        for mode in ("DEFINE", "EVALUATE", "ENFORCE", "LEARN"):
+            self.assertIn(f"## {mode}", body)
+            self.assertIn(f"{mode} is complete", body)
+        self.assertIn("Choose exactly one starting mode", body)
+        self.assertIn("never stages, commits, pushes, or opens a", body)
+
     def test_recorded_python_test_counts_match_source_tree(self) -> None:
         """Prevent promotion evidence from silently drifting after new tests."""
         evidence = yaml.safe_load(
