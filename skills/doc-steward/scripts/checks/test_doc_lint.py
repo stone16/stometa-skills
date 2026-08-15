@@ -662,3 +662,71 @@ def _run():
 
 if __name__ == "__main__":
     sys.exit(_run())
+
+
+# ------------------------------------------------------------ exclude_paths
+def _exclusion_tree(tmp):
+    """Repo with one audited charter live and one frozen under an archive."""
+    os.makedirs(os.path.join(tmp, "live"), exist_ok=True)
+    os.makedirs(os.path.join(tmp, "99_archived", "old"), exist_ok=True)
+    os.makedirs(os.path.join(tmp, "keep", "99_archived"), exist_ok=True)
+    for rel in ("live/CLAUDE.md", "99_archived/old/CLAUDE.md",
+                "keep/99_archived/CLAUDE.md"):
+        with open(os.path.join(tmp, rel), "w", encoding="utf-8") as fh:
+            fh.write("# doc\n")
+    return tmp
+
+
+def test_exclude_paths_prunes_a_target_relative_subtree(tmp_path):
+    """A repo must be able to take a frozen subtree out of audit scope.
+
+    `_EXCLUDED_DIRS` only knows build and dependency directory names, so an
+    archive directory stays in scope forever and every finding it produces is
+    unfixable by definition — the material is frozen. That is how an audit
+    accumulates findings nobody can close."""
+    root = _exclusion_tree(str(tmp_path))
+
+    kept = D.glob_taxonomy(root, exclude_paths=["99_archived"])
+
+    rels = {os.path.relpath(p, root) for p in kept}
+    assert os.path.join("live", "CLAUDE.md") in rels, rels
+    assert not any(r.startswith("99_archived") for r in rels), rels
+
+
+def test_exclude_paths_are_anchored_at_the_target(tmp_path):
+    """Entries are target-relative path prefixes, not basenames.
+
+    Matching a bare directory NAME at any depth is what `_EXCLUDED_DIRS`
+    already does, and it is the wrong shape here: excluding the repo's own
+    `99_archived/` must not silently drop an unrelated `keep/99_archived/`
+    somebody else owns."""
+    root = _exclusion_tree(str(tmp_path))
+
+    kept = D.glob_taxonomy(root, exclude_paths=["99_archived"])
+
+    rels = {os.path.relpath(p, root) for p in kept}
+    assert os.path.join("keep", "99_archived", "CLAUDE.md") in rels, rels
+
+
+def test_exclude_paths_rejects_an_entry_outside_the_target(tmp_path):
+    """A config that reaches outside the audited tree is an error, not a no-op.
+
+    The config file can come from a private overlay the audit does not own, so
+    an absolute or `..` entry must fail loudly rather than silently match
+    nothing."""
+    root = _exclusion_tree(str(tmp_path))
+
+    for bad in ("/etc", "../elsewhere", os.path.join("..", "x")):
+        try:
+            D.glob_taxonomy(root, exclude_paths=[bad])
+        except ValueError:
+            continue
+        raise AssertionError(f"{bad!r} should have been rejected")
+
+
+def test_exclude_paths_defaults_to_auditing_everything(tmp_path):
+    """Omitting the key must not change behaviour for any existing caller."""
+    root = _exclusion_tree(str(tmp_path))
+
+    assert D.glob_taxonomy(root) == D.glob_taxonomy(root, exclude_paths=[])
+    assert len(D.glob_taxonomy(root)) == 3

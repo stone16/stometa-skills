@@ -48,7 +48,9 @@ real dispatch. Stdlib-only.
 import argparse
 import hashlib
 import json
+import ntpath
 import os
+import posixpath
 import stat
 import sys
 
@@ -204,17 +206,54 @@ def target_binding(target):
 # --------------------------------------------------------------------------
 # Taxonomy globbing.
 # --------------------------------------------------------------------------
-def glob_taxonomy(target):
+def _normalize_exclusions(target, exclude_paths):
+    """Return target-relative POSIX prefixes, or () when nothing is excluded.
+
+    Entries are PATHS anchored at `target`, not directory names. Name matching
+    at any depth is what `_EXCLUDED_DIRS` already does and it is the wrong
+    shape for repo-specific exclusions: taking this repo's `99_archived/` out
+    of scope must not silently drop an unrelated `vendor-x/99_archived/`.
+
+    An absolute entry or one that escapes via `..` raises. The config can come
+    from a private overlay the audit does not own, so a rule pointing outside
+    the audited tree is a config error — failing loudly beats matching nothing.
+    """
+    out = []
+    for raw in exclude_paths or ():
+        entry = str(raw).strip().strip("/")
+        if not entry:
+            continue
+        if os.path.isabs(raw) or ntpath.isabs(str(raw)):
+            raise ValueError(f"exclude_paths entry must be target-relative: {raw!r}")
+        norm = posixpath.normpath(entry.replace(os.sep, "/"))
+        if norm == ".." or norm.startswith("../"):
+            raise ValueError(f"exclude_paths entry escapes the target: {raw!r}")
+        out.append(norm)
+    return tuple(out)
+
+
+def glob_taxonomy(target, exclude_paths=None):
     """Return the sorted list of doc-taxonomy markdown files under `target`.
 
     Matches the known doc filenames anywhere in the tree, plus every `.md`
     under a `.claude/rules` or `docs/decisions` directory. Excluded dirs
     (`.git`, `node_modules`, build outputs, vendor) are pruned at any depth.
+
+    `exclude_paths` additionally prunes target-relative subtrees supplied by
+    the repo's own config — frozen archives and vendored doc trees, where every
+    finding is unfixable by definition because the material is not editable.
     """
+    excluded = _normalize_exclusions(target, exclude_paths)
     found = set()
     for dirpath, dirnames, filenames in os.walk(target):
         dirnames[:] = [d for d in dirnames if d not in _EXCLUDED_DIRS]
         rel = os.path.relpath(dirpath, target)
+        if excluded:
+            relp = posixpath.normpath(rel.replace(os.sep, "/"))
+            if relp != "." and any(relp == e or relp.startswith(e + "/")
+                                   for e in excluded):
+                dirnames[:] = []
+                continue
         in_doc_dir = any(rel == d or rel.endswith(os.sep + d) for d in _DOC_DIRS)
         for name in filenames:
             if name in _DOC_FILENAMES or (in_doc_dir and name.endswith(".md")):
@@ -514,7 +553,8 @@ def lint(target, rules, *, tier_override=None, overlay=None, weights=None):
     side-effecting glue). When a config dict is supplied, its `tier` feeds
     tier_assess.classify as `overlay_tier` (precedence --tier > config >
     auto-detect) and its
-    `rule_toggles` disable rules for this repo. Does NOT touch history — `_main`
+    `rule_toggles` disable rules for this repo, and its `exclude_paths` take
+    target-relative subtrees out of scope. Does NOT touch history — `_main`
     owns the explicit opt-in.
     """
     target = canonical_target(target)
@@ -523,7 +563,7 @@ def lint(target, rules, *, tier_override=None, overlay=None, weights=None):
     signals = tier_assess.gather_signals(target)
     tier = tier_assess.classify(signals, tier_override=tier_override,
                                 overlay_tier=overlay.get("tier"))
-    doc_paths = glob_taxonomy(target)
+    doc_paths = glob_taxonomy(target, exclude_paths=overlay.get("exclude_paths"))
     report = run(doc_paths, rules, tier=tier,
                  dispatch=default_dispatch(target_root=target, tier=tier),
                  weights=weights, target_root=target)

@@ -6,6 +6,14 @@ sink: noop
 sink_path: null
 learn_enabled: false
 
+# Target-relative subtrees to take out of audit scope. Entries are PATHS
+# anchored at the audited target, not directory names — `99_archived` excludes
+# `<target>/99_archived/` and leaves an unrelated `vendor-x/99_archived/` alone.
+# Use it for frozen or vendored doc trees, where every finding is unfixable by
+# definition because the material is not editable. An absolute entry or one
+# escaping via `..` is a config error and raises.
+exclude_paths: []
+
 # Extra incident-specific strings to remove before learning capture.
 private_paths: []
 redaction_terms: []

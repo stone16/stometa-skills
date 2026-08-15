@@ -73,3 +73,15 @@ def test_cli_uses_only_explicit_config(tmp_path):
     with contextlib.redirect_stdout(buf):
         assert O._main(["--config", path]) == 0
     assert json.loads(buf.getvalue())["profile"] == "frontend"
+
+
+def test_exclude_paths_defaults_to_empty():
+    """Absent config must audit the whole target — opting a subtree out is
+    always a deliberate, explicit act by the repo that owns it."""
+    assert O.resolve_config(None)["exclude_paths"] == []
+
+
+def test_exclude_paths_from_config_wins(tmp_path):
+    cfg = tmp_path / "c.yml"
+    cfg.write_text("exclude_paths:\n  - 99_archived\n", encoding="utf-8")
+    assert O.resolve_config(str(cfg))["exclude_paths"] == ["99_archived"]

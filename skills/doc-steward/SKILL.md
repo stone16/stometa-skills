@@ -41,7 +41,11 @@ explicitly wants `.doc-steward/history.jsonl` updated.
    ```
 
    Precedence is `--tier` > explicit `--config` > auto-detection. Unknown offline
-   signals round down.
+   signals round down. An explicit `--config` may also set `exclude_paths` to
+   take target-relative subtrees out of audit scope — frozen archives and
+   vendored doc trees, where every finding is unfixable because the material is
+   not editable. Report what was excluded; a narrowed scope that goes unstated
+   reads as a clean audit.
 2. Read `references/standard-core.md` for the three rulers, tier, profile, and
    taxonomy. Use `references/rule-catalog.md` to distinguish spec-required rules
    from house opinion.
