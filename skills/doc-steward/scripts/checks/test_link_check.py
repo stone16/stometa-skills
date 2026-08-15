@@ -309,14 +309,27 @@ def test_symlink_to_existing_file_outside_audit_root_is_unsafe():
         assert "escapes audit root" in dead[0]["message"], dead
 
 
-def test_inline_code_filter_does_not_change_at_pointer_behavior():
+def test_backticked_at_pointer_is_not_audited_as_routing():
+    """Backticks are the documented way to mention a path without importing it.
+
+    Claude Code's memory docs: "Import parsing skips Markdown code spans and
+    fenced code blocks. To mention a path in your CLAUDE.md without importing
+    it, wrap it in backticks: writing `@README` keeps the text literal, while
+    @README outside backticks imports the file."
+    (https://code.claude.com/docs/en/memory#import-additional-files)
+
+    This test previously asserted the opposite, on the rationale that
+    "inline-code filtering is Markdown-link-only" — a statement about the
+    implementation, not about the loader. Auditing a backticked pointer
+    reports a dead import that the loader never attempts, and it penalises
+    exactly the documents that are careful enough to catalogue their imports.
+    """
     with tempfile.TemporaryDirectory() as tmp:
         source = os.path.join(tmp, "AGENTS.md")
         with open(source, "w", encoding="utf-8") as fh:
-            fh.write("`@./still-checked.md`\n")
+            fh.write("`@./not-an-import.md` is mentioned, not imported\n")
         dead = [v for v in L.check([source]) if v["rule"] == "LINK-01"]
-        assert dead, "inline-code filtering is Markdown-link-only"
-        assert "still-checked.md" in dead[0]["message"], dead
+        assert not dead, dead
 
 
 # ---------------------------------------------------------------- LINK-02
@@ -416,3 +429,35 @@ def _run():
 
 if __name__ == "__main__":
     sys.exit(_run())
+
+
+def test_at_pointer_inside_inline_code_is_not_a_live_pointer(tmp_path):
+    """Documenting a pointer is not having one.
+
+    `_extract` already skips Markdown links inside an inline-code span. The
+    `_POINTER` loop three lines above it did not, so a table cell that
+    DESCRIBES another file's imports — `| `@VOICE.md` (repo root) | ... |` —
+    was audited as this file's own routing, resolved against the wrong base,
+    and reported dead. Every honest doc that catalogues its imports got
+    penalised for the honesty."""
+    doc = tmp_path / "CLAUDE.md"
+    doc.write_text(
+        "| pointer | scope |\n"
+        "|---|---|\n"
+        "| `@VOICE.md` (repo root, not this dir) | writing skills |\n"
+        "| **`@nested/deep/persona.md`** | persona flow |\n",
+        encoding="utf-8")
+
+    _, pointers = L._extract(doc.read_text(encoding="utf-8"))
+
+    assert [p for p in pointers if p[3] == "at"] == [], pointers
+
+
+def test_a_bare_at_pointer_outside_code_is_still_extracted(tmp_path):
+    """The masking must not swallow real routing — a live `@path` is bare."""
+    doc = tmp_path / "CLAUDE.md"
+    doc.write_text("@docs/real-pointer.md\n", encoding="utf-8")
+
+    _, pointers = L._extract(doc.read_text(encoding="utf-8"))
+
+    assert [(p[1], p[3]) for p in pointers] == [("docs/real-pointer.md", "at")]

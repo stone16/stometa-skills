@@ -157,6 +157,14 @@ def _extract(text):
             # Skip the @path that belongs to an @import already captured.
             if any(s <= m.start() < e for s, e in seen_spans):
                 continue
+            # A pointer inside an inline-code span is being DESCRIBED, not
+            # used — the same reason the Markdown-link loop below skips them.
+            # Docs that catalogue another file's imports quote them in
+            # backticks and relative to that file's base, so auditing them as
+            # this file's routing reports a dead pointer that does not exist.
+            if any(start <= m.start() and m.end() <= end
+                   for start, end in inline_code):
+                continue
             pointers.append((line_no, m.group(1), False, "at"))
         for pattern in (_MD_INLINE, _MD_REFERENCE):
             for m in pattern.finditer(line):
