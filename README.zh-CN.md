@@ -52,7 +52,7 @@ Repository Skill
 
 | Skill | 作用 | Lifecycle | Compatibility |
 |---|---|---|---|
-| [`doc-steward`](skills/doc-steward) | 审计面向 Agent 的 Repo 文档，并且只在明确请求后执行有门禁的低风险修复。 | stable | 可移植源码已经公开；runtime adapter 仍按 catalog 标记为 expected 或 unsupported。 |
+| [`doc-steward`](skills/doc-steward) | 审计面向 Agent 的 Repo 文档，并且只在明确请求后执行有门禁的低风险修复。显式 `--config` 可以设置 `exclude_paths`，把冻结或 vendored 的子树移出文档语料；被窄化的报告会声明自己排除了什么。 | stable | 可移植源码已经公开；runtime adapter 仍按 catalog 标记为 expected 或 unsupported。`exclude_paths` 只有 unit 覆盖。 |
 
 ## Collections
 

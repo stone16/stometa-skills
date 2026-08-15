@@ -86,7 +86,9 @@ EVALUATE is complete only when:
 - every deterministic finding includes its catalog severity and remedy;
 - every judgment finding cites `file:line` and passes the quote-gate;
 - the final output states target, tier/profile, dimensions, grade, findings,
-  skipped checks, and whether history was enabled; and
+  skipped checks, whether history was enabled, and — when `exclude_paths` was
+  configured — the excluded subtrees and the fact that they narrow the document
+  corpus only; and
 - no audited document changed.
 
 ## ENFORCE

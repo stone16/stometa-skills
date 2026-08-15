@@ -52,7 +52,7 @@ The architecture is reusable; the private control plane is an implementation cho
 
 | Skill | What it does | Lifecycle | Compatibility |
 |---|---|---|---|
-| [`doc-steward`](skills/doc-steward) | Audits agent-facing repository documentation and applies only explicitly requested, gated low-risk fixes. | stable | Portable source published; runtime adapters remain expected or unsupported as cataloged. |
+| [`doc-steward`](skills/doc-steward) | Audits agent-facing repository documentation and applies only explicitly requested, gated low-risk fixes. An explicit `--config` may set `exclude_paths` to take frozen or vendored subtrees out of the document corpus; a narrowed report discloses what it excluded. | stable | Portable source published; runtime adapters remain expected or unsupported as cataloged. `exclude_paths` has unit coverage only. |
 
 ## Collections
 

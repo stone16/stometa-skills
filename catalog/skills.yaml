@@ -4,7 +4,7 @@ schema_version: 1
 skills:
   doc-steward:
     path: skills/doc-steward
-    version: "1.0.0"
+    version: "1.1.0"
     lifecycle: stable
     maintainers:
       - stone16
