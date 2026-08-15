@@ -32,8 +32,8 @@ tests:
   non_trigger: 6
   installation: 1
   behavior: 9
-  deterministic_unit: 364
-  repository_pytest: 375
+  deterministic_unit: 367
+  repository_pytest: 378
   promotion_unittest: 11
   fresh_forward_test: 1
   all_passed: true
@@ -80,6 +80,7 @@ provenance:
   upstream_commit: null
 
 known_limits:
+  - "link_check inline-code spans are line-based: a span opened on one line and closed on another is not recognised, and a backslash-escaped backtick will not close a span (CommonMark says it should). Both err toward auditing a quoted pointer, never toward dropping a finding."
   - Public evidence does not yet verify completion of the paired private cutover or removal of every independently editable private copy.
   - Deep inspection quality depends on the host runtime and subagent support.
   - Deterministic structure scoring certifies required-document presence only; semantic Ruler-1 quality remains an unscored deep-inspection judgment.

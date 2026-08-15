@@ -309,6 +309,72 @@ def test_symlink_to_existing_file_outside_audit_root_is_unsafe():
         assert "escapes audit root" in dead[0]["message"], dead
 
 
+def test_at_pointer_inside_inline_code_is_not_a_live_pointer():
+    """Documenting a pointer is not having one.
+
+    `_extract` already skips Markdown links inside an inline-code span. The
+    `_POINTER` loop three lines above it did not, so a table cell that
+    DESCRIBES another file's imports — `| `@VOICE.md` (repo root) | ... |` —
+    was audited as this file's own routing, resolved against the wrong base,
+    and reported dead. Every honest doc that catalogues its imports got
+    penalised for the honesty."""
+    text = ("| pointer | scope |\n"
+            "|---|---|\n"
+            "| `@VOICE.md` (repo root, not this dir) | writing skills |\n"
+            "| **`@nested/deep/persona.md`** | persona flow |\n")
+
+    _, pointers = L._extract(text)
+
+    assert [p for p in pointers if p[3] == "at"] == [], pointers
+
+
+def test_a_bare_at_pointer_outside_code_is_still_extracted():
+    """The masking must not swallow real routing — a live `@path` is bare."""
+    _, pointers = L._extract("@docs/real-pointer.md\n")
+
+    assert [(p[1], p[3]) for p in pointers] == [("docs/real-pointer.md", "at")]
+
+
+def test_backticked_at_import_is_not_audited_as_routing():
+    """`_IMPORT` matched before any code-span guard, so a QUOTED import was
+    recorded as real routing — and with a space before the closing backtick it
+    parsed cleanly, manufacturing an import that the loader never performs and
+    that can fabricate a LINK-02 cycle.
+
+    The documentation says "Import parsing skips Markdown code spans", not
+    "skips bare @path". Both extractors need the same guard."""
+    imports, pointers = L._extract("`@import foo.md` and `@import bar.md `\n")
+
+    assert imports == [], imports
+    assert [p for p in pointers if p[3] == "at"] == [], pointers
+
+
+def test_a_pointer_wrapped_in_bold_and_backticks_is_not_routing():
+    """The relative branch of `_POINTER` swallowed the closing backtick and the
+    surrounding `**`, so the match extended past the code span and a
+    full-containment guard could never fire. Formatting around a quoted
+    pointer must not turn it back into routing."""
+    _, pointers = L._extract("**`@./still-checked.md`** is quoted\n")
+
+    assert [p for p in pointers if p[3] == "at"] == [], pointers
+
+
+def test_link04_still_sees_a_bare_pointer_chain():
+    """Blast radius the PR did not disclose: bare pointers feed `_ref_graph`,
+    so silencing them also removes them from LINK-04 depth detection. A chain
+    built from UNQUOTED pointers must still be seen."""
+    with tempfile.TemporaryDirectory() as tmp:
+        for name, body in (("a.md", "@./b.md\n"), ("b.md", "@./c.md\n"),
+                           ("c.md", "x\n")):
+            with open(os.path.join(tmp, name), "w", encoding="utf-8") as fh:
+                fh.write(body)
+        paths = [os.path.join(tmp, n) for n in ("a.md", "b.md", "c.md")]
+
+        _, pointers = L._extract("@./b.md\n")
+        assert [p[1] for p in pointers] == ["./b.md"], pointers
+        assert not [v for v in L.check(paths) if v["rule"] == "LINK-01"]
+
+
 def test_backticked_at_pointer_is_not_audited_as_routing():
     """Backticks are the documented way to mention a path without importing it.
 
@@ -429,35 +495,3 @@ def _run():
 
 if __name__ == "__main__":
     sys.exit(_run())
-
-
-def test_at_pointer_inside_inline_code_is_not_a_live_pointer(tmp_path):
-    """Documenting a pointer is not having one.
-
-    `_extract` already skips Markdown links inside an inline-code span. The
-    `_POINTER` loop three lines above it did not, so a table cell that
-    DESCRIBES another file's imports — `| `@VOICE.md` (repo root) | ... |` —
-    was audited as this file's own routing, resolved against the wrong base,
-    and reported dead. Every honest doc that catalogues its imports got
-    penalised for the honesty."""
-    doc = tmp_path / "CLAUDE.md"
-    doc.write_text(
-        "| pointer | scope |\n"
-        "|---|---|\n"
-        "| `@VOICE.md` (repo root, not this dir) | writing skills |\n"
-        "| **`@nested/deep/persona.md`** | persona flow |\n",
-        encoding="utf-8")
-
-    _, pointers = L._extract(doc.read_text(encoding="utf-8"))
-
-    assert [p for p in pointers if p[3] == "at"] == [], pointers
-
-
-def test_a_bare_at_pointer_outside_code_is_still_extracted(tmp_path):
-    """The masking must not swallow real routing — a live `@path` is bare."""
-    doc = tmp_path / "CLAUDE.md"
-    doc.write_text("@docs/real-pointer.md\n", encoding="utf-8")
-
-    _, pointers = L._extract(doc.read_text(encoding="utf-8"))
-
-    assert [(p[1], p[3]) for p in pointers] == [("docs/real-pointer.md", "at")]

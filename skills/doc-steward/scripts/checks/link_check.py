@@ -36,7 +36,11 @@ _MAX_NEST = 1          # LINK-04: reference nesting deeper than this is flagged.
 # An @import directive:  @import ./foo.md   (optionally with surrounding text).
 _IMPORT = re.compile(r"@import\s+(\S+)")
 # A bare pointer:  @./foo.md  /  @path/to/foo.md  (target up to whitespace).
-_POINTER = re.compile(r"@(\.{0,2}/[^\s)\]\"']+|[A-Za-z0-9_][^\s)\]\"']*\.md)")
+# Backtick and `*` are excluded so a quoted pointer ends AT the code span.
+# Without that, `**`@./x.md`**` matched past the span and no containment test
+# could recognise it as quoted.
+_POINTER = re.compile(
+    r"@(\.{0,2}/[^\s)\]\"'`*]+|[A-Za-z0-9_][^\s)\]\"'`*]*\.md)")
 # Ordinary inline Markdown links and reference definitions. Images are excluded
 # by the negative lookbehind; external/mailto/anchor targets are filtered by
 # `_relative_markdown_target` after extraction.
@@ -136,6 +140,18 @@ def _next_comment_open(line, cursor, inline_code_spans):
         cursor = end
 
 
+def _quoted(span, inline_code):
+    """True when a match STARTS inside an inline-code span.
+
+    Start-inside rather than full containment: emphasis or punctuation can
+    extend a match past the closing backtick, and a pointer that begins inside
+    a code span is being described either way. Named once because the same
+    predicate governs @import, bare pointers and Markdown links — three copies
+    of it drifted apart before.
+    """
+    return any(start <= span[0] < end for start, end in inline_code)
+
+
 def _extract(text):
     """Return (imports, pointers) found in unguarded lines.
 
@@ -149,10 +165,16 @@ def _extract(text):
         seen_spans = []
         inline_code = _inline_code_spans(line)
         for m in _IMPORT.finditer(line):
+            # "Import parsing skips Markdown code spans and fenced code
+            # blocks" — a quoted @import is a description, exactly as a quoted
+            # bare pointer is. Recording the span either way keeps the pointer
+            # loop below from re-reading the same text.
+            seen_spans.append(m.span())
+            if _quoted(m.span(), inline_code):
+                continue
             target = m.group(1)
             imports.append((line_no, target))
             pointers.append((line_no, target, True, "at"))
-            seen_spans.append(m.span())
         for m in _POINTER.finditer(line):
             # Skip the @path that belongs to an @import already captured.
             if any(s <= m.start() < e for s, e in seen_spans):
@@ -162,14 +184,12 @@ def _extract(text):
             # Docs that catalogue another file's imports quote them in
             # backticks and relative to that file's base, so auditing them as
             # this file's routing reports a dead pointer that does not exist.
-            if any(start <= m.start() and m.end() <= end
-                   for start, end in inline_code):
+            if _quoted(m.span(), inline_code):
                 continue
             pointers.append((line_no, m.group(1), False, "at"))
         for pattern in (_MD_INLINE, _MD_REFERENCE):
             for m in pattern.finditer(line):
-                if any(start <= m.start() and m.end() <= end
-                       for start, end in inline_code):
+                if _quoted(m.span(), inline_code):
                     continue
                 parsed_target = _relative_markdown_target(
                     m.group(1) or m.group(2))
@@ -182,6 +202,18 @@ def _extract(text):
 
 
 def _inline_code_spans(line):
+    """Inline-code spans on ONE line. Two deliberate CommonMark deviations:
+
+    * A span opened on one line and closed on another is not recognised —
+      `_extract` is line-based throughout, and fenced blocks are already
+      removed upstream by `_strip_guarded_lines`.
+    * CommonMark says a backslash does not escape inside a code span; here a
+      `\`` will not close an open span.
+
+    Both make the checker slightly MORE likely to audit a quoted pointer, not
+    less, so the failure direction is a false positive a human can dismiss
+    rather than a silently dropped finding.
+    """
     """Return `(start, end)` ranges for balanced Markdown code spans.
 
     Supports multiple spans and equal-length backtick delimiter runs. A backtick
