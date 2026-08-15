@@ -48,7 +48,9 @@ real dispatch. Stdlib-only.
 import argparse
 import hashlib
 import json
+import ntpath
 import os
+import posixpath
 import stat
 import sys
 
@@ -204,17 +206,94 @@ def target_binding(target):
 # --------------------------------------------------------------------------
 # Taxonomy globbing.
 # --------------------------------------------------------------------------
-def glob_taxonomy(target):
+def _normalize_exclusions(exclude_paths):
+    """Return target-relative POSIX prefixes, or () when nothing is excluded.
+
+    Entries are PATHS anchored at the audit target, not directory names. Name
+    matching at any depth is what `_EXCLUDED_DIRS` already does and it is the
+    wrong shape for repo-specific exclusions: taking this repo's `99_archived/`
+    out of scope must not silently drop an unrelated `vendor-x/99_archived/`.
+
+    Validation is purely lexical — it never touches the filesystem — and it
+    operates on the SAME string normalization uses. Checking the raw value
+    while building the prefix from a stripped one let `" /etc "` pass as
+    absolute-safe and then become the relative prefix `etc`.
+
+    Rejected loudly, because the config can come from a private overlay the
+    audit does not own and a rule that silently matches nothing is
+    indistinguishable from one that works:
+
+      * a non-list config — a YAML scalar iterates character by character, so
+        `exclude_paths: archive` used to become seven single-letter prefixes
+      * a non-string entry — `null`, an int or a bool
+      * an absolute or drive-qualified path, on either separator convention
+      * `..` escapes, and `.` or `/` which mean "the whole target"
+
+    Backslashes are folded to `/` on every host: `entry.replace(os.sep, "/")`
+    was a no-op on POSIX, so a config written on Windows matched nothing.
+
+    Matching is lexical and CASE-SENSITIVE. On a case-insensitive filesystem
+    `99_archived` does NOT exclude `99_Archived`.
+    """
+    if exclude_paths is None:
+        return ()
+    if isinstance(exclude_paths, (str, bytes)) or not isinstance(
+            exclude_paths, (list, tuple)):
+        raise TypeError(
+            "exclude_paths must be a list of strings, got "
+            f"{type(exclude_paths).__name__}: {exclude_paths!r}")
+
+    out = []
+    for raw in exclude_paths:
+        if not isinstance(raw, str):
+            raise TypeError(
+                "exclude_paths entry must be a string, got "
+                f"{type(raw).__name__}: {raw!r}")
+        entry = raw.strip().replace("\\", "/")
+        if not entry:
+            raise ValueError("exclude_paths entry is empty")
+        # NUL cannot appear in a POSIX filename, so such an entry matches
+        # nothing — while the report would still declare a narrowed corpus and
+        # list it. Other control characters, newline included, are legal in a
+        # filename however unwise, so only NUL is rejected here.
+        if "\x00" in entry:
+            raise ValueError(
+                f"exclude_paths entry contains a NUL byte and can match no "
+                f"path: {raw!r}")
+        if (posixpath.isabs(entry) or ntpath.isabs(entry)
+                or ntpath.splitdrive(entry)[0]):
+            raise ValueError(
+                f"exclude_paths entry must be target-relative: {raw!r}")
+        norm = posixpath.normpath(entry.strip("/"))
+        if norm in ("", ".", "..") or norm.startswith("../"):
+            raise ValueError(
+                f"exclude_paths entry does not name a subtree of the target: {raw!r}")
+        out.append(norm)
+    return tuple(out)
+
+
+def glob_taxonomy(target, exclude_paths=None):
     """Return the sorted list of doc-taxonomy markdown files under `target`.
 
     Matches the known doc filenames anywhere in the tree, plus every `.md`
     under a `.claude/rules` or `docs/decisions` directory. Excluded dirs
     (`.git`, `node_modules`, build outputs, vendor) are pruned at any depth.
+
+    `exclude_paths` additionally prunes target-relative subtrees supplied by
+    the repo's own config — frozen archives and vendored doc trees, where every
+    finding is unfixable by definition because the material is not editable.
     """
+    excluded = _normalize_exclusions(exclude_paths)
     found = set()
     for dirpath, dirnames, filenames in os.walk(target):
         dirnames[:] = [d for d in dirnames if d not in _EXCLUDED_DIRS]
         rel = os.path.relpath(dirpath, target)
+        if excluded:
+            relp = posixpath.normpath(rel.replace(os.sep, "/"))
+            if relp != "." and any(relp == e or relp.startswith(e + "/")
+                                   for e in excluded):
+                dirnames[:] = []
+                continue
         in_doc_dir = any(rel == d or rel.endswith(os.sep + d) for d in _DOC_DIRS)
         for name in filenames:
             if name in _DOC_FILENAMES or (in_doc_dir and name.endswith(".md")):
@@ -507,6 +586,30 @@ def _apply_rule_toggles(rules, rule_toggles):
     return [r for r in rules if r.get("id") not in off]
 
 
+# The audit binds to a target, but `exclude_paths` binds to a CORPUS inside it.
+# Two runs on the same commit can therefore differ, and every other binding
+# field — canonical_target, git_revision, content_digest — is identical between
+# them. Without these fields a narrowed report is indistinguishable from a full
+# one, which is the same failure as a scan that reports clean after reading
+# nothing.
+_CORPUS_SCOPE_NOTE = (
+    "exclude_paths narrows the document corpus only. Tier classification, "
+    "required-document presence and the content digest still read the whole "
+    "target, so this grade mixes a narrowed corpus with target-wide "
+    "classification."
+)
+
+
+def _corpus_disclosure(excluded):
+    """Report fields that make a narrowed audit self-describing."""
+    excluded = list(excluded or ())
+    if not excluded:
+        return {"excluded_paths": [], "corpus_scope": "target-wide"}
+    return {"excluded_paths": excluded,
+            "corpus_scope": "narrowed",
+            "corpus_scope_note": _CORPUS_SCOPE_NOTE}
+
+
 def lint(target, rules, *, tier_override=None, overlay=None, weights=None):
     """Convenience: classify the tier for `target`, then run() over its docs.
 
@@ -514,7 +617,8 @@ def lint(target, rules, *, tier_override=None, overlay=None, weights=None):
     side-effecting glue). When a config dict is supplied, its `tier` feeds
     tier_assess.classify as `overlay_tier` (precedence --tier > config >
     auto-detect) and its
-    `rule_toggles` disable rules for this repo. Does NOT touch history — `_main`
+    `rule_toggles` disable rules for this repo, and its `exclude_paths` take
+    target-relative subtrees out of scope. Does NOT touch history — `_main`
     owns the explicit opt-in.
     """
     target = canonical_target(target)
@@ -523,11 +627,13 @@ def lint(target, rules, *, tier_override=None, overlay=None, weights=None):
     signals = tier_assess.gather_signals(target)
     tier = tier_assess.classify(signals, tier_override=tier_override,
                                 overlay_tier=overlay.get("tier"))
-    doc_paths = glob_taxonomy(target)
+    excluded = _normalize_exclusions(overlay.get("exclude_paths"))
+    doc_paths = glob_taxonomy(target, exclude_paths=excluded)
     report = run(doc_paths, rules, tier=tier,
                  dispatch=default_dispatch(target_root=target, tier=tier),
                  weights=weights, target_root=target)
     report.update(target_binding(target))
+    report.update(_corpus_disclosure(excluded))
     return report
 
 
@@ -573,6 +679,13 @@ def _format_text(report):
              f"structure-scope={report.get('structure_scope', 'unspecified')} "
              f"dimensions={dimensions} tier={report['tier']} "
              f"composite={report['composite']:.2f} grade={report['grade']}"]
+    # The text view is what an operator actually reads. A narrowed corpus that
+    # only appears in the JSON would still be reported as a clean audit by
+    # anyone quoting this line.
+    if report.get("corpus_scope") == "narrowed":
+        lines.append("CORPUS — narrowed, excluded: "
+                     + ", ".join(report.get("excluded_paths", [])))
+        lines.append("         " + report.get("corpus_scope_note", ""))
     counts = report.get("severity_counts", {})
     lines.append("COUNTS — " + " ".join(
         f"{severity}={counts.get(severity, 0)}"

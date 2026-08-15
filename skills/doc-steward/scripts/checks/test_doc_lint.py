@@ -662,3 +662,190 @@ def _run():
 
 if __name__ == "__main__":
     sys.exit(_run())
+
+
+# ------------------------------------------------------------ exclude_paths
+def _exclusion_tree(tmp):
+    """Repo with one audited charter live and one frozen under an archive."""
+    os.makedirs(os.path.join(tmp, "live"), exist_ok=True)
+    os.makedirs(os.path.join(tmp, "99_archived", "old"), exist_ok=True)
+    os.makedirs(os.path.join(tmp, "keep", "99_archived"), exist_ok=True)
+    for rel in ("live/CLAUDE.md", "99_archived/old/CLAUDE.md",
+                "keep/99_archived/CLAUDE.md"):
+        with open(os.path.join(tmp, rel), "w", encoding="utf-8") as fh:
+            fh.write("# doc\n")
+    return tmp
+
+
+def test_exclude_paths_prunes_a_target_relative_subtree(tmp_path):
+    """A repo must be able to take a frozen subtree out of audit scope.
+
+    `_EXCLUDED_DIRS` only knows build and dependency directory names, so an
+    archive directory stays in scope forever and every finding it produces is
+    unfixable by definition — the material is frozen. That is how an audit
+    accumulates findings nobody can close."""
+    root = _exclusion_tree(str(tmp_path))
+
+    kept = D.glob_taxonomy(root, exclude_paths=["99_archived"])
+
+    rels = {os.path.relpath(p, root) for p in kept}
+    assert os.path.join("live", "CLAUDE.md") in rels, rels
+    assert not any(r.startswith("99_archived") for r in rels), rels
+
+
+def test_exclude_paths_are_anchored_at_the_target(tmp_path):
+    """Entries are target-relative path prefixes, not basenames.
+
+    Matching a bare directory NAME at any depth is what `_EXCLUDED_DIRS`
+    already does, and it is the wrong shape here: excluding the repo's own
+    `99_archived/` must not silently drop an unrelated `keep/99_archived/`
+    somebody else owns."""
+    root = _exclusion_tree(str(tmp_path))
+
+    kept = D.glob_taxonomy(root, exclude_paths=["99_archived"])
+
+    rels = {os.path.relpath(p, root) for p in kept}
+    assert os.path.join("keep", "99_archived", "CLAUDE.md") in rels, rels
+
+
+def test_exclude_paths_rejects_an_entry_outside_the_target(tmp_path):
+    """A config that reaches outside the audited tree is an error, not a no-op.
+
+    The config file can come from a private overlay the audit does not own, so
+    an absolute or `..` entry must fail loudly rather than silently match
+    nothing."""
+    root = _exclusion_tree(str(tmp_path))
+
+    for bad in ("/etc", "../elsewhere", os.path.join("..", "x")):
+        try:
+            D.glob_taxonomy(root, exclude_paths=[bad])
+        except ValueError:
+            continue
+        raise AssertionError(f"{bad!r} should have been rejected")
+
+
+def test_exclude_paths_defaults_to_auditing_everything(tmp_path):
+    """Omitting the key must not change behaviour for any existing caller."""
+    root = _exclusion_tree(str(tmp_path))
+
+    assert D.glob_taxonomy(root) == D.glob_taxonomy(root, exclude_paths=[])
+    assert len(D.glob_taxonomy(root)) == 3
+
+
+def test_exclude_paths_validates_the_stripped_value(tmp_path):
+    """Validation must see the same string normalization uses.
+
+    `isabs` was checked against the ORIGINAL entry while the prefix was built
+    from the stripped one, so `" /etc "` passed validation and then silently
+    became the relative prefix `etc`. Whitespace is not a licence to smuggle
+    an absolute path past the check."""
+    root = _exclusion_tree(str(tmp_path))
+    for bad in (" /etc ", "\t/etc", " C:\\x ", "\\\\server\\share"):
+        try:
+            D.glob_taxonomy(root, exclude_paths=[bad])
+        except ValueError:
+            continue
+        raise AssertionError(f"{bad!r} should have been rejected")
+
+
+def test_exclude_paths_rejects_a_root_only_entry(tmp_path):
+    """`"/"` normalized to the empty string and was skipped, so a config that
+    plainly says "exclude everything" became a silent no-op. Either meaning is
+    defensible; silently doing nothing is not."""
+    root = _exclusion_tree(str(tmp_path))
+    try:
+        D.glob_taxonomy(root, exclude_paths=["/"])
+    except ValueError:
+        return
+    raise AssertionError("'/' should have been rejected, not ignored")
+
+
+def test_exclude_paths_rejects_a_bare_string_config(tmp_path):
+    """A YAML scalar iterates character by character: `exclude_paths: archive`
+    became ('a','r','c','h','i','v','e'). A shape error must not be silently
+    reinterpreted as seven exclusions."""
+    root = _exclusion_tree(str(tmp_path))
+    try:
+        D.glob_taxonomy(root, exclude_paths="archive")
+    except (TypeError, ValueError):
+        return
+    raise AssertionError("a bare string must be rejected, not iterated")
+
+
+def test_exclude_paths_rejects_a_non_string_item(tmp_path):
+    """`null`, an int or a bool in the list used to reach os.path.isabs and
+    raise TypeError deep inside normalization. Reject it where the shape is
+    known, with a message naming the config key."""
+    root = _exclusion_tree(str(tmp_path))
+    for bad in (None, 3, True):
+        try:
+            D.glob_taxonomy(root, exclude_paths=[bad])
+        except (TypeError, ValueError):
+            continue
+        raise AssertionError(f"{bad!r} should have been rejected")
+
+
+def test_exclude_paths_handles_a_windows_separator(tmp_path):
+    """`entry.replace(os.sep, "/")` is a no-op on POSIX, so `foo\\bar` in a
+    config written on Windows silently became a literal filename that matched
+    nothing. Normalize both separators regardless of host."""
+    root = _exclusion_tree(str(tmp_path))
+    os.makedirs(os.path.join(root, "docs", "legacy"), exist_ok=True)
+    with open(os.path.join(root, "docs", "legacy", "CLAUDE.md"), "w",
+              encoding="utf-8") as fh:
+        fh.write("# doc\n")
+
+    kept = D.glob_taxonomy(root, exclude_paths=["docs\\legacy"])
+
+    rels = {os.path.relpath(p, root) for p in kept}
+    assert not any(r.startswith(os.path.join("docs", "legacy")) for r in rels), rels
+
+
+def test_a_narrowed_audit_discloses_its_exclusions(tmp_path):
+    """A narrowed audit must not be byte-identical to a full one.
+
+    Without disclosure the two reports share `canonical_target`,
+    `git_revision`, `content_digest` and `"scope": "deterministic"`, so a
+    reader cannot tell that findings came from a smaller corpus. A skipped
+    subtree that goes unstated reads as a clean audit — the same failure the
+    scanner's own CLI guard exists to prevent."""
+    import rules as R
+    root = _exclusion_tree(str(tmp_path))
+
+    full = D.lint(root, R.RULES)
+    narrowed = D.lint(root, R.RULES, overlay={"exclude_paths": ["99_archived"]})
+
+    assert full.get("excluded_paths") == []
+    assert narrowed.get("excluded_paths") == ["99_archived"]
+    assert narrowed["corpus_scope"] == "narrowed"
+    assert full["corpus_scope"] == "target-wide"
+
+
+def test_disclosure_names_the_boundary_of_what_exclusions_touch(tmp_path):
+    """`exclude_paths` narrows the DOCUMENT CORPUS only. Tier, required-document
+    presence and the content digest still read the whole target, so a report
+    can mix a narrow corpus with target-wide classification. That is a real
+    limitation and the report has to say so rather than let a reader assume
+    the whole audit was scoped."""
+    import rules as R
+    root = _exclusion_tree(str(tmp_path))
+
+    narrowed = D.lint(root, R.RULES, overlay={"exclude_paths": ["99_archived"]})
+
+    assert narrowed["corpus_scope_note"], "a narrowed report must state the boundary"
+    note = narrowed["corpus_scope_note"].lower()
+    assert "tier" in note and "presence" in note and "digest" in note
+
+
+def test_exclude_paths_rejects_a_nul_byte(tmp_path):
+    """A POSIX filename cannot contain NUL, so such an entry matches nothing —
+    yet the report would still declare a narrowed corpus and list it. An
+    exclusion that silently excludes nothing while claiming to have narrowed
+    the audit is the same false all-clear this feature exists to avoid."""
+    root = _exclusion_tree(str(tmp_path))
+    for bad in ("\x00", "arch\x00ive", "docs/\x00"):
+        try:
+            D.glob_taxonomy(root, exclude_paths=[bad])
+        except ValueError:
+            continue
+        raise AssertionError(f"{bad!r} should have been rejected")
