@@ -335,6 +335,67 @@ def test_a_bare_at_pointer_outside_code_is_still_extracted():
     assert [(p[1], p[3]) for p in pointers] == [("docs/real-pointer.md", "at")]
 
 
+def test_no_test_is_defined_after_the_direct_run_guard():
+    """This file declares that it can be executed directly. Anything defined
+    after `sys.exit(_run())` is invisible to that runner while pytest still
+    collects it, so the two report different totals and a test can look green
+    while never running.
+
+    It has happened twice — the second time by appending with `cat >>`, which
+    writes to EOF, below the guard. A reviewer caught it once; this makes the
+    shape of the mistake impossible instead of relying on that.
+    """
+    src = open(__file__, encoding="utf-8").read()
+    # rindex, not index: this test quotes the guard in its own docstring, and
+    # matching that copy would make everything below it look like it sits
+    # after the guard.
+    guard = src.rindex("sys.exit(_run())")
+    assert "def test_" not in src[guard:], (
+        "a test is defined after the direct-run guard and will never run "
+        "under `python3 test_link_check.py`")
+
+
+def test_a_pointer_containing_an_asterisk_or_backtick_is_not_truncated():
+    """Narrowing the character class was collateral damage, not a fix.
+
+    Excluding `*` and a backtick to stop `**`@./x.md`**` escaping its span
+    also truncated legitimate targets — `@./foo*bar.md` became `./foo`, which
+    fabricates a LINK-01 for a path nobody wrote, and `@docs/foo*bar.md`
+    vanished entirely. Both characters are legal in a POSIX filename.
+
+    The start-inside `_quoted()` predicate already handles a match that runs
+    past a closing backtick, so the class does not need to be narrow."""
+    for text, want in (("@./foo*bar.md", "./foo*bar.md"),
+                       ("@./foo`bar.md", "./foo`bar.md"),
+                       ("@docs/foo*bar.md", "docs/foo*bar.md")):
+        _, pointers = L._extract(text)
+        assert [p[1] for p in pointers] == [want], (text, pointers)
+
+
+def test_an_escaped_backtick_closes_an_open_code_span():
+    """CommonMark: a backslash escapes in normal text but has NO meaning inside
+    a code span. So `\\`` cannot OPEN a span and MUST close one.
+
+    Treating it as escaped in both positions extended the span past its real
+    end and swallowed a live pointer — a silent false negative on LINK-01,
+    the opposite of what this file previously claimed the deviation could do.
+    """
+    text = "`quoted \\` @./live.md `\n"
+
+    _, pointers = L._extract(text)
+
+    assert [p[1] for p in pointers] == ["./live.md"], pointers
+
+
+def test_an_escaped_backtick_still_cannot_open_a_span():
+    """The other half of the CommonMark rule, so the fix cannot over-reach:
+    outside a span the backslash does escape, so `\\`` opens nothing and a
+    pointer after it stays live."""
+    _, pointers = L._extract("\\` @./live.md\n")
+
+    assert [p[1] for p in pointers] == ["./live.md"], pointers
+
+
 def test_backticked_at_import_is_not_audited_as_routing():
     """`_IMPORT` matched before any code-span guard, so a QUOTED import was
     recorded as real routing — and with a space before the closing backtick it
