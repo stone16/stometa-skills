@@ -835,3 +835,17 @@ def test_disclosure_names_the_boundary_of_what_exclusions_touch(tmp_path):
     assert narrowed["corpus_scope_note"], "a narrowed report must state the boundary"
     note = narrowed["corpus_scope_note"].lower()
     assert "tier" in note and "presence" in note and "digest" in note
+
+
+def test_exclude_paths_rejects_a_nul_byte(tmp_path):
+    """A POSIX filename cannot contain NUL, so such an entry matches nothing —
+    yet the report would still declare a narrowed corpus and list it. An
+    exclusion that silently excludes nothing while claiming to have narrowed
+    the audit is the same false all-clear this feature exists to avoid."""
+    root = _exclusion_tree(str(tmp_path))
+    for bad in ("\x00", "arch\x00ive", "docs/\x00"):
+        try:
+            D.glob_taxonomy(root, exclude_paths=[bad])
+        except ValueError:
+            continue
+        raise AssertionError(f"{bad!r} should have been rejected")

@@ -252,6 +252,14 @@ def _normalize_exclusions(exclude_paths):
         entry = raw.strip().replace("\\", "/")
         if not entry:
             raise ValueError("exclude_paths entry is empty")
+        # NUL cannot appear in a POSIX filename, so such an entry matches
+        # nothing — while the report would still declare a narrowed corpus and
+        # list it. Other control characters, newline included, are legal in a
+        # filename however unwise, so only NUL is rejected here.
+        if "\x00" in entry:
+            raise ValueError(
+                f"exclude_paths entry contains a NUL byte and can match no "
+                f"path: {raw!r}")
         if (posixpath.isabs(entry) or ntpath.isabs(entry)
                 or ntpath.splitdrive(entry)[0]):
             raise ValueError(
