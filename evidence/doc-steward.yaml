@@ -27,13 +27,20 @@ context_results:
     finding_count: 57
     skipped_count: 0
 
+# exclude_paths is exercised by unit tests only. There is no end-to-end audit
+# run with a config file, no Windows host run, and no case-insensitive
+# filesystem run. Matching is lexical and case-sensitive by design.
+known_limits:
+  - "exclude_paths: unit coverage only; no end-to-end config audit, Windows, or case-insensitive filesystem smoke test"
+  - "exclude_paths narrows the document corpus only; tier, required-document presence and content digest remain target-wide (disclosed in the report as corpus_scope)"
+
 tests:
   trigger: 6
   non_trigger: 6
   installation: 1
   behavior: 9
-  deterministic_unit: 362
-  repository_pytest: 373
+  deterministic_unit: 376
+  repository_pytest: 387
   promotion_unittest: 11
   fresh_forward_test: 1
   all_passed: true

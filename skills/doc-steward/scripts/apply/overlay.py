@@ -17,12 +17,14 @@ import os
 #   * learn_enabled: False — belt-and-suspenders with sink=noop.
 #   * tier / profile: None — fall through to auto-detect (tier_assess.py).
 #   * private_paths / redaction_terms / rule_toggles: empty.
+#   * exclude_paths: [] — audit the whole target unless a repo opts a subtree out.
 DEFAULTS = {
     "sink": "noop",
     "sink_path": None,
     "learn_enabled": False,
     "tier": None,
     "profile": None,
+    "exclude_paths": [],
     "private_paths": [],
     "redaction_terms": [],
     "rule_toggles": {},
