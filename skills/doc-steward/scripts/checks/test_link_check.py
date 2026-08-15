@@ -309,14 +309,154 @@ def test_symlink_to_existing_file_outside_audit_root_is_unsafe():
         assert "escapes audit root" in dead[0]["message"], dead
 
 
-def test_inline_code_filter_does_not_change_at_pointer_behavior():
+def test_at_pointer_inside_inline_code_is_not_a_live_pointer():
+    """Documenting a pointer is not having one.
+
+    `_extract` already skips Markdown links inside an inline-code span. The
+    `_POINTER` loop three lines above it did not, so a table cell that
+    DESCRIBES another file's imports — `| `@VOICE.md` (repo root) | ... |` —
+    was audited as this file's own routing, resolved against the wrong base,
+    and reported dead. Every honest doc that catalogues its imports got
+    penalised for the honesty."""
+    text = ("| pointer | scope |\n"
+            "|---|---|\n"
+            "| `@VOICE.md` (repo root, not this dir) | writing skills |\n"
+            "| **`@nested/deep/persona.md`** | persona flow |\n")
+
+    _, pointers = L._extract(text)
+
+    assert [p for p in pointers if p[3] == "at"] == [], pointers
+
+
+def test_a_bare_at_pointer_outside_code_is_still_extracted():
+    """The masking must not swallow real routing — a live `@path` is bare."""
+    _, pointers = L._extract("@docs/real-pointer.md\n")
+
+    assert [(p[1], p[3]) for p in pointers] == [("docs/real-pointer.md", "at")]
+
+
+def test_no_test_is_defined_after_the_direct_run_guard():
+    """This file declares that it can be executed directly. Anything defined
+    after `sys.exit(_run())` is invisible to that runner while pytest still
+    collects it, so the two report different totals and a test can look green
+    while never running.
+
+    It has happened twice — the second time by appending with `cat >>`, which
+    writes to EOF, below the guard. A reviewer caught it once; this makes the
+    shape of the mistake impossible instead of relying on that.
+    """
+    src = open(__file__, encoding="utf-8").read()
+    # rindex, not index: this test quotes the guard in its own docstring, and
+    # matching that copy would make everything below it look like it sits
+    # after the guard.
+    guard = src.rindex("sys.exit(_run())")
+    assert "def test_" not in src[guard:], (
+        "a test is defined after the direct-run guard and will never run "
+        "under `python3 test_link_check.py`")
+
+
+def test_a_pointer_containing_an_asterisk_or_backtick_is_not_truncated():
+    """Narrowing the character class was collateral damage, not a fix.
+
+    Excluding `*` and a backtick to stop `**`@./x.md`**` escaping its span
+    also truncated legitimate targets — `@./foo*bar.md` became `./foo`, which
+    fabricates a LINK-01 for a path nobody wrote, and `@docs/foo*bar.md`
+    vanished entirely. Both characters are legal in a POSIX filename.
+
+    The start-inside `_quoted()` predicate already handles a match that runs
+    past a closing backtick, so the class does not need to be narrow."""
+    for text, want in (("@./foo*bar.md", "./foo*bar.md"),
+                       ("@./foo`bar.md", "./foo`bar.md"),
+                       ("@docs/foo*bar.md", "docs/foo*bar.md")):
+        _, pointers = L._extract(text)
+        assert [p[1] for p in pointers] == [want], (text, pointers)
+
+
+def test_an_escaped_backtick_closes_an_open_code_span():
+    """CommonMark: a backslash escapes in normal text but has NO meaning inside
+    a code span. So `\\`` cannot OPEN a span and MUST close one.
+
+    Treating it as escaped in both positions extended the span past its real
+    end and swallowed a live pointer — a silent false negative on LINK-01,
+    the opposite of what this file previously claimed the deviation could do.
+    """
+    text = "`quoted \\` @./live.md `\n"
+
+    _, pointers = L._extract(text)
+
+    assert [p[1] for p in pointers] == ["./live.md"], pointers
+
+
+def test_an_escaped_backtick_still_cannot_open_a_span():
+    """The other half of the CommonMark rule, so the fix cannot over-reach:
+    outside a span the backslash does escape, so `\\`` opens nothing and a
+    pointer after it stays live."""
+    _, pointers = L._extract("\\` @./live.md\n")
+
+    assert [p[1] for p in pointers] == ["./live.md"], pointers
+
+
+def test_backticked_at_import_is_not_audited_as_routing():
+    """`_IMPORT` matched before any code-span guard, so a QUOTED import was
+    recorded as real routing — and with a space before the closing backtick it
+    parsed cleanly, manufacturing an import that the loader never performs and
+    that can fabricate a LINK-02 cycle.
+
+    The documentation says "Import parsing skips Markdown code spans", not
+    "skips bare @path". Both extractors need the same guard."""
+    imports, pointers = L._extract("`@import foo.md` and `@import bar.md `\n")
+
+    assert imports == [], imports
+    assert [p for p in pointers if p[3] == "at"] == [], pointers
+
+
+def test_a_pointer_wrapped_in_bold_and_backticks_is_not_routing():
+    """The relative branch of `_POINTER` swallowed the closing backtick and the
+    surrounding `**`, so the match extended past the code span and a
+    full-containment guard could never fire. Formatting around a quoted
+    pointer must not turn it back into routing."""
+    _, pointers = L._extract("**`@./still-checked.md`** is quoted\n")
+
+    assert [p for p in pointers if p[3] == "at"] == [], pointers
+
+
+def test_link04_still_sees_a_bare_pointer_chain():
+    """Blast radius the PR did not disclose: bare pointers feed `_ref_graph`,
+    so silencing them also removes them from LINK-04 depth detection. A chain
+    built from UNQUOTED pointers must still be seen."""
+    with tempfile.TemporaryDirectory() as tmp:
+        for name, body in (("a.md", "@./b.md\n"), ("b.md", "@./c.md\n"),
+                           ("c.md", "x\n")):
+            with open(os.path.join(tmp, name), "w", encoding="utf-8") as fh:
+                fh.write(body)
+        paths = [os.path.join(tmp, n) for n in ("a.md", "b.md", "c.md")]
+
+        _, pointers = L._extract("@./b.md\n")
+        assert [p[1] for p in pointers] == ["./b.md"], pointers
+        assert not [v for v in L.check(paths) if v["rule"] == "LINK-01"]
+
+
+def test_backticked_at_pointer_is_not_audited_as_routing():
+    """Backticks are the documented way to mention a path without importing it.
+
+    Claude Code's memory docs: "Import parsing skips Markdown code spans and
+    fenced code blocks. To mention a path in your CLAUDE.md without importing
+    it, wrap it in backticks: writing `@README` keeps the text literal, while
+    @README outside backticks imports the file."
+    (https://code.claude.com/docs/en/memory#import-additional-files)
+
+    This test previously asserted the opposite, on the rationale that
+    "inline-code filtering is Markdown-link-only" — a statement about the
+    implementation, not about the loader. Auditing a backticked pointer
+    reports a dead import that the loader never attempts, and it penalises
+    exactly the documents that are careful enough to catalogue their imports.
+    """
     with tempfile.TemporaryDirectory() as tmp:
         source = os.path.join(tmp, "AGENTS.md")
         with open(source, "w", encoding="utf-8") as fh:
-            fh.write("`@./still-checked.md`\n")
+            fh.write("`@./not-an-import.md` is mentioned, not imported\n")
         dead = [v for v in L.check([source]) if v["rule"] == "LINK-01"]
-        assert dead, "inline-code filtering is Markdown-link-only"
-        assert "still-checked.md" in dead[0]["message"], dead
+        assert not dead, dead
 
 
 # ---------------------------------------------------------------- LINK-02

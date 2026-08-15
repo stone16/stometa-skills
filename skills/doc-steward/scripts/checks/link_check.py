@@ -36,6 +36,11 @@ _MAX_NEST = 1          # LINK-04: reference nesting deeper than this is flagged.
 # An @import directive:  @import ./foo.md   (optionally with surrounding text).
 _IMPORT = re.compile(r"@import\s+(\S+)")
 # A bare pointer:  @./foo.md  /  @path/to/foo.md  (target up to whitespace).
+# The class is deliberately NOT narrowed to exclude backtick or `*`. Doing so
+# to stop `**`@./x.md`**` escaping its span truncated legitimate targets —
+# `@./foo*bar.md` became `./foo`, fabricating a LINK-01 — and both characters
+# are legal in a POSIX filename. `_quoted()` tests where a match STARTS, which
+# already handles a match running past the closing delimiter.
 _POINTER = re.compile(r"@(\.{0,2}/[^\s)\]\"']+|[A-Za-z0-9_][^\s)\]\"']*\.md)")
 # Ordinary inline Markdown links and reference definitions. Images are excluded
 # by the negative lookbehind; external/mailto/anchor targets are filtered by
@@ -136,6 +141,18 @@ def _next_comment_open(line, cursor, inline_code_spans):
         cursor = end
 
 
+def _quoted(span, inline_code):
+    """True when a match STARTS inside an inline-code span.
+
+    Start-inside rather than full containment: emphasis or punctuation can
+    extend a match past the closing backtick, and a pointer that begins inside
+    a code span is being described either way. Named once because the same
+    predicate governs @import, bare pointers and Markdown links — three copies
+    of it drifted apart before.
+    """
+    return any(start <= span[0] < end for start, end in inline_code)
+
+
 def _extract(text):
     """Return (imports, pointers) found in unguarded lines.
 
@@ -149,19 +166,31 @@ def _extract(text):
         seen_spans = []
         inline_code = _inline_code_spans(line)
         for m in _IMPORT.finditer(line):
+            # "Import parsing skips Markdown code spans and fenced code
+            # blocks" — a quoted @import is a description, exactly as a quoted
+            # bare pointer is. Recording the span either way keeps the pointer
+            # loop below from re-reading the same text.
+            seen_spans.append(m.span())
+            if _quoted(m.span(), inline_code):
+                continue
             target = m.group(1)
             imports.append((line_no, target))
             pointers.append((line_no, target, True, "at"))
-            seen_spans.append(m.span())
         for m in _POINTER.finditer(line):
             # Skip the @path that belongs to an @import already captured.
             if any(s <= m.start() < e for s, e in seen_spans):
                 continue
+            # A pointer inside an inline-code span is being DESCRIBED, not
+            # used — the same reason the Markdown-link loop below skips them.
+            # Docs that catalogue another file's imports quote them in
+            # backticks and relative to that file's base, so auditing them as
+            # this file's routing reports a dead pointer that does not exist.
+            if _quoted(m.span(), inline_code):
+                continue
             pointers.append((line_no, m.group(1), False, "at"))
         for pattern in (_MD_INLINE, _MD_REFERENCE):
             for m in pattern.finditer(line):
-                if any(start <= m.start() and m.end() <= end
-                       for start, end in inline_code):
+                if _quoted(m.span(), inline_code):
                     continue
                 parsed_target = _relative_markdown_target(
                     m.group(1) or m.group(2))
@@ -174,11 +203,29 @@ def _extract(text):
 
 
 def _inline_code_spans(line):
+    """Inline-code spans on ONE line. One remaining CommonMark deviation:
+
+    A span opened on one line and closed on another is not recognised —
+    `_extract` is line-based throughout, and fenced blocks are already removed
+    upstream by `_strip_guarded_lines`. Observed effect is OVER-extraction: the
+    pointer is still reported, sometimes with a trailing backtick attached, so
+    the failure is a false positive a human can dismiss.
+
+    An earlier version also claimed a backslash-escaped backtick "cannot open
+    or close a span". That one was NOT directionally safe — it extended a span
+    past its real end and silently swallowed a live pointer, a LINK-01 false
+    negative. It is fixed above rather than documented: an escaped backtick
+    cannot open a span but does close one.
+
+    The lesson is worth keeping: "this only produces false positives" is a
+    claim about every input, and stating it without checking is how a false
+    negative gets written down as safe.
+    """
     """Return `(start, end)` ranges for balanced Markdown code spans.
 
     Supports multiple spans and equal-length backtick delimiter runs. A backtick
-    preceded by an odd number of backslashes is escaped and cannot open or close
-    a span. Unbalanced delimiters are ignored. The ranges include delimiters so
+    preceded by an odd number of backslashes cannot OPEN a span, but does close
+    one: CommonMark gives backslash no escaping meaning inside a code span. Unbalanced delimiters are ignored. The ranges include delimiters so
     Markdown links wholly inside the span can be suppressed without altering the
     existing `@` pointer extractor.
     """
@@ -186,7 +233,12 @@ def _inline_code_spans(line):
     opening = None
     i = 0
     while i < len(line):
-        if line[i] != "`" or _is_escaped(line, i):
+        # A backslash escapes in normal text but has NO meaning inside a code
+        # span (CommonMark). So an escaped backtick cannot OPEN a span, and
+        # must be allowed to CLOSE one — treating it as escaped in both
+        # positions extended the span past its real end and swallowed a live
+        # pointer, a silent LINK-01 false negative.
+        if line[i] != "`" or (opening is None and _is_escaped(line, i)):
             i += 1
             continue
         end = i + 1
