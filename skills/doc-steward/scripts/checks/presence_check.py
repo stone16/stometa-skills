@@ -38,6 +38,18 @@ def _markdown_exists(directory):
                for path in glob.glob(os.path.join(directory, "*.md")))
 
 
+def _decision_docs_exist(root):
+    """Return whether the repository has a decision-document surface.
+
+    ``docs/adr`` is the preferred house layout. ``docs/decisions`` remains a
+    compatible MADR layout so adopting doc-steward does not require a risky
+    documentation migration just to satisfy the presence preflight.
+    """
+    return any(_markdown_exists(os.path.join(root, directory))
+               for directory in (os.path.join("docs", "adr"),
+                                 os.path.join("docs", "decisions")))
+
+
 def missing_requirements(target_root, *, tier):
     """Return ``(profile, root_charter_present, missing_labels)``.
 
@@ -69,8 +81,8 @@ def missing_requirements(target_root, *, tier):
     if tier == "Complex":
         if not _markdown_exists(os.path.join(root, ".claude", "rules")):
             missing.append(".claude/rules/*.md")
-        if not _markdown_exists(os.path.join(root, "docs", "decisions")):
-            missing.append("docs/decisions/*.md")
+        if not _decision_docs_exist(root):
+            missing.append("docs/adr/*.md")
 
     return profile, root_charter_present, missing
 

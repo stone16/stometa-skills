@@ -120,6 +120,14 @@ def test_plain_agents_and_adr_do_not_require_frontmatter():
         assert F.check(plain, R.RULES, file=path) == [], path
 
 
+def test_adr_frontmatter_uses_decision_record_schema():
+    text = ("---\ntitle: Example decision\ntype: adr\nstatus: accepted\n"
+            "---\n\n## Decision\n")
+    for path in ("/repo/docs/adr/0001-example.md",
+                 "/repo/docs/decisions/0001-example.md"):
+        assert F.check(text, R.RULES, file=path) == [], path
+
+
 def test_exact_skill_md_requires_frontmatter():
     v = F.check("# Skill without metadata\n", R.RULES,
                 file="/repo/skills/example/SKILL.md")

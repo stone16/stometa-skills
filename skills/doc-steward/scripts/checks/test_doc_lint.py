@@ -251,9 +251,19 @@ def test_complex_requires_rules_and_decision_surfaces(tmp_path):
     finding = next(f for f in report["findings"]
                    if f["rule"] == "STRUCT-06")
     assert finding["missing"] == [
-        ".claude/rules/*.md", "docs/decisions/*.md"
+        ".claude/rules/*.md", "docs/adr/*.md"
     ], finding
     assert report["grade"] == "PASS_WITH_CONCERNS", report
+
+
+def test_complex_adr_surface_satisfies_decision_preflight(tmp_path):
+    _write_doc(tmp_path, "AGENTS.md")
+    _write_doc(tmp_path, "CLAUDE.md")
+    _write_doc(tmp_path, ".claude/rules/python.md",
+               '---\npaths: ["**/*.py"]\n---\n')
+    _write_doc(tmp_path, "docs/adr/0001-contract.md")
+    report = D.lint(str(tmp_path), R.RULES, tier_override="Complex")
+    assert "STRUCT-06" not in _ids(report["findings"]), report
 
 
 def test_nested_only_charters_and_skill_do_not_satisfy_root(tmp_path):

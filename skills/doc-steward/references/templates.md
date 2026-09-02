@@ -22,7 +22,7 @@ This is the public, harness-neutral core. Placeholders are written as
 [project]/
 ├── src/              # [source]
 ├── tests/            # [tests]
-├── docs/             # [docs + decisions/]
+├── docs/             # [docs + adr/]
 └── AGENTS.md         # this charter (CLAUDE.md is a symlink to it)
 \`\`\`
 
@@ -123,7 +123,11 @@ ad-hoc components.
 
 ---
 
-## 4. MADR — Markdown Any Decision Record (`docs/decisions/NNNN-title.md`)
+## 4. MADR — Markdown Any Decision Record (`docs/adr/NNNN-title.md`)
+
+`docs/adr/` is the preferred decision-record directory. Existing repositories
+using `docs/decisions/` are compatible and do not need to migrate solely for
+doc-steward compliance.
 
 Canonical minimal template; sections are opt-in, not mandatory boilerplate
 (DECISION-03). Every recommendation states Accepted → Rejected → Constraint

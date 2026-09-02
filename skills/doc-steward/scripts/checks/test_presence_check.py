@@ -51,8 +51,24 @@ def test_complex_requires_rules_and_decisions(tmp_path):
     _touch(tmp_path, "CLAUDE.md")
     finding = _one(tmp_path, "Complex")
     assert finding["missing"] == [
-        ".claude/rules/*.md", "docs/decisions/*.md"
+        ".claude/rules/*.md", "docs/adr/*.md"
     ], finding
+    _touch(tmp_path, ".claude/rules/python.md")
+    _touch(tmp_path, "docs/decisions/0001-contract.md")
+    assert P.check(str(tmp_path), R.RULES, tier="Complex") == []
+
+
+def test_complex_accepts_adr_decision_surface(tmp_path):
+    _touch(tmp_path, "AGENTS.md")
+    _touch(tmp_path, "CLAUDE.md")
+    _touch(tmp_path, ".claude/rules/python.md")
+    _touch(tmp_path, "docs/adr/0001-contract.md")
+    assert P.check(str(tmp_path), R.RULES, tier="Complex") == []
+
+
+def test_complex_keeps_decisions_as_compatible_surface(tmp_path):
+    _touch(tmp_path, "AGENTS.md")
+    _touch(tmp_path, "CLAUDE.md")
     _touch(tmp_path, ".claude/rules/python.md")
     _touch(tmp_path, "docs/decisions/0001-contract.md")
     assert P.check(str(tmp_path), R.RULES, tier="Complex") == []

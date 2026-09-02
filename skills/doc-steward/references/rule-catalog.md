@@ -24,7 +24,7 @@ _48 rules across 11 categories._
 - **STRUCT-03** [P2·Simple·E·H] — owner `inspector:inspector-structure`
 - **STRUCT-04** [P1·Simple·E·S] — owner `inspector:inspector-structure`
 - **STRUCT-05** [P1·Standard·E·S] — owner `inspector:inspector-structure`
-- **STRUCT-06** [P1·Simple·E·S] — owner `deterministic:presence_check` · remedy: Create the missing required root document surface(s): Simple needs `<target>/AGENTS.md` or `<target>/CLAUDE.md`; Standard and Complex need both; Complex also needs `.claude/rules/<name>.md` and `docs/decisions/0001-<title>.md`. Scaffold only after an explicit request.
+- **STRUCT-06** [P1·Simple·E·S] — owner `deterministic:presence_check` · remedy: Create the missing required root document surface(s): Simple needs `<target>/AGENTS.md` or `<target>/CLAUDE.md`; Standard and Complex need both; Complex also needs `.claude/rules/<name>.md` and `docs/adr/0001-<title>.md` (or compatible `docs/decisions/`). Scaffold only after an explicit request.
 - **RESID-01** [P1·Simple·E·S] — owner `inspector:inspector-structure`
 - **RESID-03** [P1·Simple·E·H] — owner `inspector:inspector-structure`
 

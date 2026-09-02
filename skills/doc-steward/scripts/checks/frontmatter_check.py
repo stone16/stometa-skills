@@ -121,6 +121,11 @@ def _frontmatter_policy(file):
         if (parts[idx:idx + 2] == [".claude", "rules"]
                 and parts[-1].endswith(".md")):
             return "rule-required"
+    for idx in range(len(parts) - 2):
+        if (parts[idx:idx + 2] in (["docs", "adr"],
+                                  ["docs", "decisions"])
+                and parts[-1].endswith(".md")):
+            return "adr-optional"
     return "optional"
 
 
@@ -230,6 +235,12 @@ def check(frontmatter_text, rules, *, file="<frontmatter>", doc_id=None,
             "separate field")
 
     # ---- FRONT-04: required schema + semver validation ----
+    # ADR documents may carry their own decision-record metadata (for example
+    # title/type/status) and therefore do not opt into the generic optional
+    # name/version/description schema.
+    if policy == "adr-optional":
+        return out
+
     # SKILL.md uses the portable name/description schema accepted by skill
     # runtimes. Optional docs that elect to carry frontmatter use the strict
     # name/version/description schema. `.claude/rules/*.md` follows its shipped

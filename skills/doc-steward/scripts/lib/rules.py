@@ -80,7 +80,8 @@ _REMEDY_STRUCT06 = (
     "Create the missing required root document surface(s): Simple needs "
     "`<target>/AGENTS.md` or `<target>/CLAUDE.md`; Standard and Complex need "
     "both; Complex also needs `.claude/rules/<name>.md` and "
-    "`docs/decisions/0001-<title>.md`. Scaffold only after an explicit request."
+    "`docs/adr/0001-<title>.md` (or compatible `docs/decisions/`). Scaffold "
+    "only after an explicit request."
 )
 
 

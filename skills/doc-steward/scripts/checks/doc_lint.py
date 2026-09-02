@@ -2,7 +2,8 @@
 """doc_lint — top-level READ-ONLY doc-steward runner (design §4.3 line 91).
 
 Globs the doc taxonomy (CLAUDE.md / AGENTS.md / SKILL.md / `.claude/rules` /
-`docs/decisions` / DESIGN.md) — or a single `--target <dir>` — classifies the
+`docs/adr` or compatible `docs/decisions` / DESIGN.md) — or a single
+`--target <dir>` — classifies the
 repo tier via `tier_assess`, dispatches the DETERMINISTIC checkers
 (`presence_check`, `frontmatter_check`, `link_check`; rules whose
 `check == "deterministic"`),
@@ -92,7 +93,11 @@ _SEVERITY_RANK = {"P0": 0, "P1": 1, "P2": 2}
 # Doc taxonomy the runner audits (design §4.3). Filenames matched anywhere in
 # the tree; the two directory roots are matched by their path segment.
 _DOC_FILENAMES = ("CLAUDE.md", "AGENTS.md", "SKILL.md", "DESIGN.md")
-_DOC_DIRS = (os.path.join(".claude", "rules"), os.path.join("docs", "decisions"))
+_DOC_DIRS = (
+    os.path.join(".claude", "rules"),
+    os.path.join("docs", "adr"),
+    os.path.join("docs", "decisions"),
+)
 # Pruned at any depth DURING the walk (mirrors tier_assess._EXCLUDED_DIRS, plus
 # test-fixture/test dirs). The fixture dirs carry INTENTIONAL-defect docs that
 # exist only to feed the checkers' own tests — auditing them would make every
@@ -208,7 +213,8 @@ def glob_taxonomy(target):
     """Return the sorted list of doc-taxonomy markdown files under `target`.
 
     Matches the known doc filenames anywhere in the tree, plus every `.md`
-    under a `.claude/rules` or `docs/decisions` directory. Excluded dirs
+    under a `.claude/rules`, `docs/adr`, or compatible `docs/decisions`
+    directory. Excluded dirs
     (`.git`, `node_modules`, build outputs, vendor) are pruned at any depth.
     """
     found = set()

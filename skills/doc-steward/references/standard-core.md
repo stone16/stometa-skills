@@ -2,7 +2,8 @@
 
 The business-agnostic standard for how a repository organizes its **agent-facing
 documentation** (CLAUDE.md / AGENTS.md / SKILL.md / `.claude/rules` / `agent_docs`
-/ `docs/decisions` / DESIGN.md). This is the public, harness-neutral core and
+/ `docs/adr` or compatible `docs/decisions` / DESIGN.md). This is the public,
+harness-neutral core and
 contains no personal identity conventions.
 
 This file is the read-on-demand DEFINE reference. The canonical rule list lives in
@@ -80,7 +81,7 @@ remember"* into *"it checks for you."*
 | All repos | the tool's global instruction layer | Cross-repo behavioral rules (honesty / verification / git discipline). Nothing repo-specific. |
 | This repo | `AGENTS.md` (canonical, cross-tool source) + `CLAUDE.md` (thin bridge) | Repo guardrails, build/test commands, Architecture Map, verification-contract pointer |
 | One service/subtree | nested `AGENTS.md` (Codex concatenates root→leaf, sibling-isolated, **not** lazy) **or** `.claude/rules/*.md` (`paths:`-scoped, **true lazy load**, Claude Code only) | Service-level guardrails, module boundaries |
-| Any altitude — procedures / detail | `docs/` (runbooks), `docs/decisions/` (MADR ADRs), skills, `agent_docs/`, `DESIGN.md` | Multi-step procedures, ADR bodies, topic detail. Resident files keep only a one-line pointer. |
+| Any altitude — procedures / detail | `docs/` (runbooks), `docs/adr/` (preferred MADR ADRs; `docs/decisions/` is compatible), skills, `agent_docs/`, `DESIGN.md` | Multi-step procedures, ADR bodies, topic detail. Resident files keep only a one-line pointer. |
 
 ### Cross-tool wiring (Codex + Claude)
 Claude reads `CLAUDE.md`; Codex reads `AGENTS.md`. **One canonical source =
@@ -108,7 +109,9 @@ FRONT-* rules validate any taxonomy document that already begins with a `---`
 frontmatter block. The block is required only for an exact `SKILL.md` and for
 `.claude/rules/*.md`; a similarly named fixture such as `SKILL.fixture.md` is not
 a Skill entrypoint. Plain `AGENTS.md`, `CLAUDE.md`, `DESIGN.md`, and
-`docs/decisions/*.md` are valid without frontmatter and must not receive a
+`docs/adr/*.md` and compatible `docs/decisions/*.md` may omit frontmatter, or
+use their decision-record metadata (`title`, `type`, `status`, etc.); they must
+not receive a
 missing-frontmatter finding. If one of those optional documents does carry a
 leading block, its metadata is still validated.
 
@@ -160,7 +163,7 @@ link integrity · AGENTS↔CLAUDE wiring.
 **Adds:** full Project Contract (NEVER/ALWAYS, Coding-Conventions,
 Architecture-Boundaries, Compact-Instructions) · nested nearest-file precedence
 (per-subtree `AGENTS.md` **+** sibling `CLAUDE.md` symlink) · `.claude/rules`
-(`paths:`-scoped) · `docs/decisions/` MADR · all inspectors.
+(`paths:`-scoped) · `docs/adr/` MADR (with compatible `docs/decisions/`) · all inspectors.
 
 Public/OSS is inferred from **local deterministic signals only** (an
 OSI-recognized `LICENSE` file + a public-host git remote); when unknown it defaults
@@ -169,7 +172,7 @@ to the lower (private/non-OSS) tier.
 The deterministic `STRUCT-06` preflight enforces these presence surfaces before
 content scoring: Simple repository targets need root `AGENTS.md` **or**
 `CLAUDE.md`; Standard/Complex need both; Complex also needs at least one
-`.claude/rules/*.md` and one `docs/decisions/*.md`. A repository with neither root
+`.claude/rules/*.md` and one `docs/adr/*.md` (or compatible `docs/decisions/*.md`). A repository with neither root
 charter receives structure/frontmatter/links = 0 and FAIL, not a vacuous PASS.
 One missing Standard/Complex surface is a P1 structure=4 concern. Presence
 findings never create files: ENFORCE scaffolds an absent surface only when the
