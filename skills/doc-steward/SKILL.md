@@ -1,11 +1,6 @@
 ---
 name: doc-steward
-description: >
-  Steward agent-facing repository documentation against a tiered house standard. Use when
-  auditing or grading AGENTS.md, CLAUDE.md, SKILL.md, .claude/rules, ADRs, or DESIGN.md for
-  structure, drift, frontmatter, or broken routing; explicitly previewing or applying gated
-  low-risk fixes after an audit; or explicitly capturing one documentation lesson. Not for
-  prose copy-editing, application-code review, product-interface design, or generic formatting.
+description: Audit agent docs. Use when checking structure, drift, or routing, explicitly previewing or applying fixes after an audit, or capturing a lesson. Not for prose copy-editing.
 ---
 
 # doc-steward

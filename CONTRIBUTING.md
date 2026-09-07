@@ -38,11 +38,7 @@ A promotion PR must include:
 
 ## Development checks
 
-```bash
-python3 -m pip install -r requirements-dev.txt
-python3 scripts/validate_repo.py
-python3 -m unittest discover -s tests
-python3 -m pytest skills -q
-```
+Follow the [validation policy in AGENTS.md](AGENTS.md#validation) to select the
+checks required for your change and install dependencies only when missing.
 
 Use an English, atomic commit message. Do not add `Co-Authored-By` lines.
