@@ -15,14 +15,14 @@ This repository is the canonical public source for promoted Stometa agent skills
 7. Never commit secrets, customer identifiers, personal paths, private repository names, raw prompts, or private task output.
 8. Keep runtime adapters thin. Do not duplicate skill bodies for different harnesses.
 
-## Required checks
+## Validation
 
-```bash
-python3 -m pip install -r requirements-dev.txt
-python3 scripts/validate_repo.py
-python3 -m unittest discover -s tests
-python3 -m pytest skills -q
-```
+Run `python3 scripts/validate_repo.py` for tracked documentation, skill, or catalog
+changes. For skill behavior, packaging, promotion, or shared validation changes,
+also run `python3 -m unittest discover -s tests` and `python3 -m pytest skills -q`.
+Install `requirements-dev.txt` only when required dependencies are missing.
+For prose-only edits, verify affected references and run `git diff --check`;
+report any unavailable or failed check explicitly.
 
 ## Git workflow
 
