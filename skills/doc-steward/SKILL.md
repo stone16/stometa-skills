@@ -1,6 +1,6 @@
 ---
 name: doc-steward
-description: Audit agent docs. Use when checking structure, drift, or routing, applying requested fixes, or capturing a lesson. Not for prose copy-editing.
+description: Audit agent docs. Use when checking structure, drift, or routing, explicitly previewing or applying fixes after an audit, or capturing a lesson. Not for prose copy-editing.
 ---
 
 # doc-steward
